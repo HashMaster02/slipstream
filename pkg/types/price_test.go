@@ -66,6 +66,42 @@ func TestPrice_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestParsePrice(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		want    types.Price
+		wantErr bool
+	}{
+		{"integer only", "130", 1300000, false},
+		{"short fraction", "130.5", 1305000, false},
+		{"exact-4 fraction", "130.1234", 1301234, false},
+		{"too many decimals truncates", "130.12345", 1301234, false},
+		{"negative", "-130.5", -1305000, false},
+		{"empty string", "", 0, true},
+		{"dot alone", ".", 0, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := types.ParsePrice(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("ParsePrice(%q) = %d, nil; want error", tc.in, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("ParsePrice(%q) unexpected error: %v", tc.in, err)
+				return
+			}
+			if got != tc.want {
+				t.Errorf("ParsePrice(%q) = %d, want %d", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestPrice_String(t *testing.T) {
 	tests := []struct {
 		name string
