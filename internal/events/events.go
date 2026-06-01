@@ -22,7 +22,8 @@ func (e EventType) String() string {
 }
 
 const (
-	MarketEventType EventType = iota
+	MarketEventType EventType = iota;
+	SignalEventType
 )
 
 
@@ -34,5 +35,23 @@ type MarketEvent struct {
 var _ Event = MarketEvent{}
 
 func (m MarketEvent) Kind() EventType {
+	return m.Type
+}
+
+const (
+	SignalLong uint8 = iota;
+	SignalShort;
+	SignalExit
+)
+
+type SignalEvent struct {
+	Type EventType
+	Symbol string
+	SignalType uint8
+	CreatedAt time.Time
+}
+var _ Event = SignalEvent{}
+
+func (m SignalEvent) Kind() EventType {
 	return m.Type
 }
