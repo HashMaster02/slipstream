@@ -14,6 +14,7 @@ import (
 
 type Row struct {
 	Timestamp time.Time
+	Symbol string
 	Open types.Price
 	High types.Price
 	Low types.Price
@@ -23,11 +24,12 @@ type Row struct {
 
 type Reader struct {
 	file *os.File
+	symbol string
 	scanner *bufio.Scanner
 	currRow uint64
 }
 
-func NewReader(path string) (*Reader, error ) {
+func NewReader(path string, sym string) (*Reader, error ) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not open file %s: %w", path, err)
@@ -35,7 +37,7 @@ func NewReader(path string) (*Reader, error ) {
 
 	scanner := bufio.NewScanner(file)
 
-	return &Reader{file: file, scanner: scanner, currRow: 0}, nil
+	return &Reader{file: file, symbol: sym, scanner: scanner, currRow: 0}, nil
 }
 
 func (r *Reader) CloseReader() {
@@ -94,6 +96,7 @@ func (r *Reader) Next() (Row, error) {
 
 	row := Row{
 		Timestamp: time,
+		Symbol: r.symbol,
 		Open: open,
 		High: high,
 		Low: low,

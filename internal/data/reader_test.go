@@ -24,7 +24,7 @@ func writeTempCSV(t *testing.T, content string) string {
 func TestNewReader(t *testing.T) {
 	t.Run("opens existing file", func(t *testing.T) {
 		path := writeTempCSV(t, "")
-		r, err := data.NewReader(path)
+		r, err := data.NewReader(path, "AAPL")
 		if err != nil {
 			t.Fatalf("NewReader(%q) unexpected error: %v", path, err)
 		}
@@ -36,7 +36,7 @@ func TestNewReader(t *testing.T) {
 
 	t.Run("missing file returns error", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "does-not-exist.csv")
-		r, err := data.NewReader(path)
+		r, err := data.NewReader(path, "AAPL")
 		if err == nil {
 			r.CloseReader()
 			t.Fatalf("NewReader(%q) = %v, nil; want error", path, r)
@@ -47,7 +47,7 @@ func TestNewReader(t *testing.T) {
 func TestReader_Next(t *testing.T) {
 	t.Run("parses a valid row", func(t *testing.T) {
 		path := writeTempCSV(t, "2024-01-02 03:04:05,1.2345,2.3456,0.5,1.0001,42\n")
-		r, err := data.NewReader(path)
+		r, err := data.NewReader(path, "AAPL")
 		if err != nil {
 			t.Fatalf("NewReader: %v", err)
 		}
@@ -61,6 +61,9 @@ func TestReader_Next(t *testing.T) {
 		wantTime := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
 		if !row.Timestamp.Equal(wantTime) {
 			t.Errorf("Timestamp = %v, want %v", row.Timestamp, wantTime)
+		}
+		if row.Symbol != "AAPL" {
+			t.Errorf("Symbol = %q, want %q", row.Symbol, "AAPL")
 		}
 		if row.Open != types.Price(12345) {
 			t.Errorf("Open = %d, want %d", row.Open, 12345)
@@ -84,7 +87,7 @@ func TestReader_Next(t *testing.T) {
 			"2024-01-02 03:04:06,5,6,7,8,20\n" +
 			"2024-01-02 03:04:07,9,10,11,12,30\n"
 		path := writeTempCSV(t, content)
-		r, err := data.NewReader(path)
+		r, err := data.NewReader(path, "AAPL")
 		if err != nil {
 			t.Fatalf("NewReader: %v", err)
 		}
@@ -99,6 +102,9 @@ func TestReader_Next(t *testing.T) {
 			if row.Volume != wantVol {
 				t.Errorf("row %d Volume = %d, want %d", i, row.Volume, wantVol)
 			}
+			if row.Symbol != "AAPL" {
+				t.Errorf("row %d Symbol = %q, want %q", i, row.Symbol, "AAPL")
+			}
 		}
 
 		if _, err := r.Next(); !errors.Is(err, io.EOF) {
@@ -108,7 +114,7 @@ func TestReader_Next(t *testing.T) {
 
 	t.Run("empty file returns EOF immediately", func(t *testing.T) {
 		path := writeTempCSV(t, "")
-		r, err := data.NewReader(path)
+		r, err := data.NewReader(path, "AAPL")
 		if err != nil {
 			t.Fatalf("NewReader: %v", err)
 		}
@@ -138,7 +144,7 @@ func TestReader_Next(t *testing.T) {
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				path := writeTempCSV(t, tc.line)
-				r, err := data.NewReader(path)
+				r, err := data.NewReader(path, "AAPL")
 				if err != nil {
 					t.Fatalf("NewReader: %v", err)
 				}
@@ -156,7 +162,7 @@ func TestReader_Next(t *testing.T) {
 			"bad,row,here,really,bad,nope\n" +
 			"2024-01-02 03:04:07,5,6,7,8,30\n"
 		path := writeTempCSV(t, content)
-		r, err := data.NewReader(path)
+		r, err := data.NewReader(path, "AAPL")
 		if err != nil {
 			t.Fatalf("NewReader: %v", err)
 		}
@@ -180,7 +186,7 @@ func TestReader_Next(t *testing.T) {
 
 func TestReader_CloseReader(t *testing.T) {
 	path := writeTempCSV(t, "2024-01-02 03:04:05,1,2,3,4,10\n")
-	r, err := data.NewReader(path)
+	r, err := data.NewReader(path, "AAPL")
 	if err != nil {
 		t.Fatalf("NewReader: %v", err)
 	}
