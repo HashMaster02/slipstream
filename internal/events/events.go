@@ -29,7 +29,6 @@ const (
 
 type MarketEvent struct {
 	Type  EventType
-	Symbol string
 	CreatedAt time.Time
 }
 var _ Event = MarketEvent{}

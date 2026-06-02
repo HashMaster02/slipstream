@@ -45,7 +45,7 @@ func TestMarketEvent_Kind(t *testing.T) {
 		want events.EventType
 	}{
 		{"zero value", events.MarketEvent{}, events.MarketEventType},
-		{"fully populated", events.MarketEvent{Type: events.MarketEventType, Symbol: "AAPL", CreatedAt: time.Now()}, events.MarketEventType},
+		{"fully populated", events.MarketEvent{Type: events.MarketEventType, CreatedAt: time.Now()}, events.MarketEventType},
 		{"undefined type field", events.MarketEvent{Type: events.EventType(7)}, events.EventType(7)},
 		{"negative type field", events.MarketEvent{Type: events.EventType(-1)}, events.EventType(-1)},
 		{"min type field", events.MarketEvent{Type: events.EventType(-128)}, events.EventType(-128)},
@@ -63,7 +63,7 @@ func TestMarketEvent_Kind(t *testing.T) {
 // MarketEvent must satisfy the Event interface, and dispatching Kind() through
 // the interface must yield the same result as the concrete method.
 func TestMarketEvent_ImplementsEvent(t *testing.T) {
-	var e events.Event = events.MarketEvent{Symbol: "MSFT"}
+	var e events.Event = events.MarketEvent{}
 
 	if got := e.Kind(); got != events.MarketEventType {
 		t.Errorf("Event.Kind() = %d, want %d", int8(got), int8(events.MarketEventType))
@@ -78,13 +78,9 @@ func TestMarketEvent_Fields(t *testing.T) {
 	now := time.Now()
 	m := events.MarketEvent{
 		Type:      events.MarketEventType,
-		Symbol:    "GOOG",
 		CreatedAt: now,
 	}
 
-	if m.Symbol != "GOOG" {
-		t.Errorf("Symbol = %q, want %q", m.Symbol, "GOOG")
-	}
 	if !m.CreatedAt.Equal(now) {
 		t.Errorf("CreatedAt = %v, want %v", m.CreatedAt, now)
 	}
