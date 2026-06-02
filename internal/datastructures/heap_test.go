@@ -10,26 +10,26 @@ import (
 	"github.com/HashMaster02/slipstream/internal/datastructures"
 )
 
-// entry builds a ReaderEntry whose Row timestamp is t seconds past a fixed
-// epoch. The symbol is included so ordering of equal timestamps can be checked.
-func entry(symbol string, seconds int) *datastructures.ReaderEntry {
+// row builds a data.Row whose timestamp is t seconds past a fixed epoch. The
+// symbol is included so ordering of equal timestamps can be checked.
+func row(symbol string, seconds int) *data.Row {
 	base := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	return &datastructures.ReaderEntry{
-		Row:    data.Row{Timestamp: base.Add(time.Duration(seconds) * time.Second)},
-		Symbol: symbol,
+	return &data.Row{
+		Timestamp: base.Add(time.Duration(seconds) * time.Second),
+		Symbol:    symbol,
 	}
 }
 
-func TestReaderHeap_Len(t *testing.T) {
+func TestRowHeap_Len(t *testing.T) {
 	tests := []struct {
 		name string
-		h    datastructures.ReaderHeap
+		h    datastructures.RowHeap
 		want int
 	}{
-		{"empty", datastructures.ReaderHeap{}, 0},
+		{"empty", datastructures.RowHeap{}, 0},
 		{"nil", nil, 0},
-		{"one", datastructures.ReaderHeap{entry("A", 0)}, 1},
-		{"three", datastructures.ReaderHeap{entry("A", 0), entry("B", 1), entry("C", 2)}, 3},
+		{"one", datastructures.RowHeap{row("A", 0)}, 1},
+		{"three", datastructures.RowHeap{row("A", 0), row("B", 1), row("C", 2)}, 3},
 	}
 
 	for _, tc := range tests {
@@ -41,12 +41,12 @@ func TestReaderHeap_Len(t *testing.T) {
 	}
 }
 
-func TestReaderHeap_Less(t *testing.T) {
-	earlier := entry("A", 0)
-	later := entry("B", 1)
-	sameAsEarlier := entry("C", 0)
+func TestRowHeap_Less(t *testing.T) {
+	earlier := row("A", 0)
+	later := row("B", 1)
+	sameAsEarlier := row("C", 0)
 
-	h := datastructures.ReaderHeap{earlier, later, sameAsEarlier}
+	h := datastructures.RowHeap{earlier, later, sameAsEarlier}
 
 	t.Run("earlier timestamp is less", func(t *testing.T) {
 		if !h.Less(0, 1) {
@@ -72,10 +72,10 @@ func TestReaderHeap_Less(t *testing.T) {
 	})
 }
 
-func TestReaderHeap_Swap(t *testing.T) {
-	a := entry("A", 0)
-	b := entry("B", 1)
-	h := datastructures.ReaderHeap{a, b}
+func TestRowHeap_Swap(t *testing.T) {
+	a := row("A", 0)
+	b := row("B", 1)
+	h := datastructures.RowHeap{a, b}
 
 	h.Swap(0, 1)
 
@@ -84,7 +84,7 @@ func TestReaderHeap_Swap(t *testing.T) {
 	}
 
 	t.Run("swap element with itself is a no-op", func(t *testing.T) {
-		h := datastructures.ReaderHeap{a, b}
+		h := datastructures.RowHeap{a, b}
 		h.Swap(0, 0)
 		if h[0] != a || h[1] != b {
 			t.Error("Swap(i, i) altered the slice")
@@ -92,21 +92,21 @@ func TestReaderHeap_Swap(t *testing.T) {
 	})
 }
 
-func TestReaderHeap_Push(t *testing.T) {
-	h := &datastructures.ReaderHeap{}
-	e := entry("A", 5)
+func TestRowHeap_Push(t *testing.T) {
+	h := &datastructures.RowHeap{}
+	r := row("A", 5)
 
-	h.Push(e)
+	h.Push(r)
 
 	if h.Len() != 1 {
 		t.Fatalf("Len() after Push = %d, want 1", h.Len())
 	}
-	if (*h)[0] != e {
-		t.Error("Push did not append the entry")
+	if (*h)[0] != r {
+		t.Error("Push did not append the row")
 	}
 
-	t.Run("appends onto existing entries", func(t *testing.T) {
-		second := entry("B", 6)
+	t.Run("appends onto existing rows", func(t *testing.T) {
+		second := row("B", 6)
 		h.Push(second)
 		if h.Len() != 2 {
 			t.Fatalf("Len() after second Push = %d, want 2", h.Len())
@@ -117,28 +117,28 @@ func TestReaderHeap_Push(t *testing.T) {
 	})
 }
 
-func TestReaderHeap_Pop(t *testing.T) {
-	a := entry("A", 0)
-	b := entry("B", 1)
-	c := entry("C", 2)
-	h := datastructures.ReaderHeap{a, b, c}
+func TestRowHeap_Pop(t *testing.T) {
+	a := row("A", 0)
+	b := row("B", 1)
+	c := row("C", 2)
+	h := datastructures.RowHeap{a, b, c}
 
 	got := h.Pop()
 
 	if got != c {
-		t.Errorf("Pop() returned the wrong entry, got %v, want C", got)
+		t.Errorf("Pop() returned the wrong row, got %v, want C", got)
 	}
 	if h.Len() != 2 {
 		t.Errorf("Len() after Pop = %d, want 2", h.Len())
 	}
 	if h[0] != a || h[1] != b {
-		t.Error("Pop did not preserve the remaining entries")
+		t.Error("Pop did not preserve the remaining rows")
 	}
 
 	t.Run("clears the popped slot to avoid memory leak", func(t *testing.T) {
 		// Pop nils out the last slot before shrinking; the underlying array
 		// (cap is unchanged by reslicing) should hold nil there now.
-		h := datastructures.ReaderHeap{a, b}
+		h := datastructures.RowHeap{a, b}
 		_ = h.Pop()
 		full := h[:cap(h)]
 		if full[1] != nil {
@@ -147,7 +147,7 @@ func TestReaderHeap_Pop(t *testing.T) {
 	})
 
 	t.Run("pop down to empty", func(t *testing.T) {
-		h := datastructures.ReaderHeap{a}
+		h := datastructures.RowHeap{a}
 		got := h.Pop()
 		if got != a {
 			t.Errorf("Pop() = %v, want A", got)
@@ -158,22 +158,22 @@ func TestReaderHeap_Pop(t *testing.T) {
 	})
 }
 
-// TestReaderHeap_HeapInterface exercises the type through container/heap to
+// TestRowHeap_HeapInterface exercises the type through container/heap to
 // confirm the methods compose into a correct min-heap ordered by timestamp.
-func TestReaderHeap_HeapInterface(t *testing.T) {
+func TestRowHeap_HeapInterface(t *testing.T) {
 	t.Run("pops in timestamp order", func(t *testing.T) {
 		// Insert deliberately out of order.
 		seconds := []int{5, 1, 3, 0, 4, 2}
-		h := &datastructures.ReaderHeap{}
+		h := &datastructures.RowHeap{}
 		heap.Init(h)
 		for i, s := range seconds {
-			heap.Push(h, entry(string(rune('A'+i)), s))
+			heap.Push(h, row(string(rune('A'+i)), s))
 		}
 
 		var gotOrder []int
 		for h.Len() > 0 {
-			e := heap.Pop(h).(*datastructures.ReaderEntry)
-			gotOrder = append(gotOrder, e.Row.Timestamp.Second())
+			r := heap.Pop(h).(*data.Row)
+			gotOrder = append(gotOrder, r.Timestamp.Second())
 		}
 
 		want := append([]int(nil), seconds...)
@@ -186,33 +186,33 @@ func TestReaderHeap_HeapInterface(t *testing.T) {
 	})
 
 	t.Run("equal timestamps all pop out", func(t *testing.T) {
-		h := &datastructures.ReaderHeap{}
+		h := &datastructures.RowHeap{}
 		heap.Init(h)
 		for i := 0; i < 4; i++ {
-			heap.Push(h, entry(string(rune('A'+i)), 0))
+			heap.Push(h, row(string(rune('A'+i)), 0))
 		}
 
 		seen := map[string]bool{}
 		for h.Len() > 0 {
-			e := heap.Pop(h).(*datastructures.ReaderEntry)
-			seen[e.Symbol] = true
+			r := heap.Pop(h).(*data.Row)
+			seen[r.Symbol] = true
 		}
 		for _, s := range []string{"A", "B", "C", "D"} {
 			if !seen[s] {
-				t.Errorf("entry %s was not popped", s)
+				t.Errorf("row %s was not popped", s)
 			}
 		}
 	})
 
 	t.Run("single element", func(t *testing.T) {
-		h := &datastructures.ReaderHeap{}
-		heap.Push(h, entry("only", 7))
+		h := &datastructures.RowHeap{}
+		heap.Push(h, row("only", 7))
 		if h.Len() != 1 {
 			t.Fatalf("Len() = %d, want 1", h.Len())
 		}
-		e := heap.Pop(h).(*datastructures.ReaderEntry)
-		if e.Symbol != "only" {
-			t.Errorf("popped Symbol = %q, want %q", e.Symbol, "only")
+		r := heap.Pop(h).(*data.Row)
+		if r.Symbol != "only" {
+			t.Errorf("popped Symbol = %q, want %q", r.Symbol, "only")
 		}
 		if h.Len() != 0 {
 			t.Errorf("Len() after pop = %d, want 0", h.Len())
@@ -220,17 +220,17 @@ func TestReaderHeap_HeapInterface(t *testing.T) {
 	})
 
 	t.Run("fixes ordering after a key changes", func(t *testing.T) {
-		first := entry("A", 1)
-		second := entry("B", 2)
-		h := &datastructures.ReaderHeap{}
+		first := row("A", 1)
+		second := row("B", 2)
+		h := &datastructures.RowHeap{}
 		heap.Push(h, first)
 		heap.Push(h, second)
 
 		// Mutate the root to a later time and re-establish heap invariant.
-		first.Row.Timestamp = first.Row.Timestamp.Add(10 * time.Second)
+		first.Timestamp = first.Timestamp.Add(10 * time.Second)
 		heap.Fix(h, 0)
 
-		min := heap.Pop(h).(*datastructures.ReaderEntry)
+		min := heap.Pop(h).(*data.Row)
 		if min.Symbol != "B" {
 			t.Errorf("after Fix, min Symbol = %q, want %q", min.Symbol, "B")
 		}
