@@ -3,6 +3,8 @@ package events
 import (
 	"fmt"
 	"time"
+
+	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
 // EventType is a generic event. All events in the system will implement its interface.
@@ -23,7 +25,7 @@ func (e EventType) String() string {
 
 const (
 	MarketEventType EventType = iota;
-	SignalEventType
+	OrderEventType
 )
 
 
@@ -37,20 +39,33 @@ func (m MarketEvent) Kind() EventType {
 	return m.Type
 }
 
+type OrderTypeType int8;
 const (
-	SignalLong uint8 = iota;
-	SignalShort;
-	SignalExit
+	Buy OrderTypeType = iota;
+	Sell
 )
 
-type SignalEvent struct {
+type OrderEvent struct {
 	Type EventType
 	Symbol string
-	SignalType uint8
+	OrderType OrderTypeType
+	Price types.Price
+	PositionSize int64
+	BarTimestamp time.Time
 	CreatedAt time.Time
 }
-var _ Event = SignalEvent{}
+var _ Event = OrderEvent{}
 
-func (m SignalEvent) Kind() EventType {
+func (m OrderEvent) Kind() EventType {
 	return m.Type
+}
+func (m OrderTypeType) String() string {
+	switch m {
+	case Buy:
+		return "Buy"
+	case Sell:
+		return "Sell"
+	default:
+		return fmt.Sprintf("OrderType(%d)", int8(m))
+	}
 }
