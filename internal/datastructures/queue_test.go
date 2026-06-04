@@ -7,24 +7,24 @@ import (
 	"github.com/HashMaster02/slipstream/internal/events"
 )
 
-// mkEvent builds a SignalEvent tagged with symbol so individual items can be
+// mkEvent builds an OrderEvent tagged with symbol so individual items can be
 // told apart when verifying ordering.
-func mkEvent(symbol string) events.SignalEvent {
-	return events.SignalEvent{Type: events.SignalEventType, Symbol: symbol}
+func mkEvent(symbol string) events.OrderEvent {
+	return events.OrderEvent{Type: events.OrderEventType, Symbol: symbol}
 }
 
-// popSymbol pops one event and asserts it is a SignalEvent, returning its symbol.
+// popSymbol pops one event and asserts it is an OrderEvent, returning its symbol.
 func popSymbol(t *testing.T, q *datastructures.Queue) string {
 	t.Helper()
 	got, ok := q.Pop()
 	if !ok {
 		t.Fatalf("Pop() ok = false, want true (queue should still hold an item)")
 	}
-	se, isSignal := got.(events.SignalEvent)
-	if !isSignal {
-		t.Fatalf("Pop() returned %T, want events.SignalEvent", got)
+	oe, isOrder := got.(events.OrderEvent)
+	if !isOrder {
+		t.Fatalf("Pop() returned %T, want events.OrderEvent", got)
 	}
-	return se.Symbol
+	return oe.Symbol
 }
 
 // A freshly constructed queue must be empty: zero length and Pop reports nothing.
@@ -60,12 +60,12 @@ func TestQueue_PushPopSingle(t *testing.T) {
 	if !ok {
 		t.Fatalf("Pop() ok = false, want true")
 	}
-	se, isSignal := got.(events.SignalEvent)
-	if !isSignal {
-		t.Fatalf("Pop() returned %T, want events.SignalEvent", got)
+	oe, isOrder := got.(events.OrderEvent)
+	if !isOrder {
+		t.Fatalf("Pop() returned %T, want events.OrderEvent", got)
 	}
-	if se.Symbol != "AAPL" {
-		t.Errorf("popped Symbol = %q, want %q", se.Symbol, "AAPL")
+	if oe.Symbol != "AAPL" {
+		t.Errorf("popped Symbol = %q, want %q", oe.Symbol, "AAPL")
 	}
 	if got := q.Len(); got != 0 {
 		t.Errorf("Len() after draining = %d, want 0", got)
@@ -194,10 +194,10 @@ func TestQueue_LenTracksOperations(t *testing.T) {
 // Distinct event values must round-trip without being collapsed or shared.
 func TestQueue_PreservesEventValues(t *testing.T) {
 	q := datastructures.NewQueue()
-	in := []events.SignalEvent{
-		{Type: events.SignalEventType, Symbol: "AAPL"},
-		{Type: events.SignalEventType, Symbol: "MSFT"},
-		{Type: events.SignalEventType, Symbol: "GOOG"},
+	in := []events.OrderEvent{
+		{Type: events.OrderEventType, Symbol: "AAPL"},
+		{Type: events.OrderEventType, Symbol: "MSFT"},
+		{Type: events.OrderEventType, Symbol: "GOOG"},
 	}
 	for _, e := range in {
 		q.Push(e)
