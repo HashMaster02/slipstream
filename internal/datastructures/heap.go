@@ -46,3 +46,13 @@ func (h *RowHeap) PushEntry(e *data.Row) {
 func (h *RowHeap) PopEntry() *data.Row {
 	return heap.Pop(h).(*data.Row)
 }
+
+// Peek returns the earliest data.Row without removing it, or nil if the
+// heap is empty.
+func (h *RowHeap) Peek() *data.Row {
+	old := *h
+	if len(old) == 0 {
+		return nil
+	}
+	return old[0]
+}

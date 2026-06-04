@@ -158,6 +158,82 @@ func TestRowHeap_Pop(t *testing.T) {
 	})
 }
 
+func TestRowHeap_Peek(t *testing.T) {
+	t.Run("returns the earliest row without removing it", func(t *testing.T) {
+		a := row("A", 0)
+		b := row("B", 1)
+		c := row("C", 2)
+		h := datastructures.RowHeap{a, b, c}
+
+		got := h.Peek()
+
+		if got != a {
+			t.Errorf("Peek() = %v, want A", got)
+		}
+		if h.Len() != 3 {
+			t.Errorf("Len() after Peek = %d, want 3 (Peek must not remove)", h.Len())
+		}
+		if h[0] != a {
+			t.Error("Peek mutated the root of the heap")
+		}
+	})
+
+	t.Run("empty heap returns nil", func(t *testing.T) {
+		h := datastructures.RowHeap{}
+		if got := h.Peek(); got != nil {
+			t.Errorf("Peek() on empty heap = %v, want nil", got)
+		}
+	})
+
+	t.Run("nil heap returns nil", func(t *testing.T) {
+		var h datastructures.RowHeap
+		if got := h.Peek(); got != nil {
+			t.Errorf("Peek() on nil heap = %v, want nil", got)
+		}
+	})
+
+	t.Run("single element", func(t *testing.T) {
+		only := row("only", 7)
+		h := datastructures.RowHeap{only}
+		if got := h.Peek(); got != only {
+			t.Errorf("Peek() = %v, want only", got)
+		}
+		if h.Len() != 1 {
+			t.Errorf("Len() after Peek = %d, want 1", h.Len())
+		}
+	})
+
+	t.Run("reflects the true minimum through container/heap", func(t *testing.T) {
+		// Build a heap via the standard interface so the root genuinely holds
+		// the minimum, then confirm Peek surfaces it and repeated Peeks are
+		// stable.
+		seconds := []int{5, 1, 3, 0, 4, 2}
+		h := &datastructures.RowHeap{}
+		heap.Init(h)
+		for i, s := range seconds {
+			heap.Push(h, row(string(rune('A'+i)), s))
+		}
+
+		first := h.Peek()
+		if first == nil {
+			t.Fatal("Peek() = nil, want the minimum row")
+		}
+		if first.Timestamp.Second() != 0 {
+			t.Errorf("Peek() timestamp second = %d, want 0", first.Timestamp.Second())
+		}
+		// Peek must be idempotent.
+		if again := h.Peek(); again != first {
+			t.Error("consecutive Peek() calls returned different rows")
+		}
+
+		// And it must match what Pop subsequently returns.
+		popped := heap.Pop(h).(*data.Row)
+		if popped != first {
+			t.Error("Peek() did not match the next Pop()")
+		}
+	})
+}
+
 // TestRowHeap_HeapInterface exercises the type through container/heap to
 // confirm the methods compose into a correct min-heap ordered by timestamp.
 func TestRowHeap_HeapInterface(t *testing.T) {
