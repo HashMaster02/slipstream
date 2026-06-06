@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"sync"
-	"time"
 
 	"github.com/HashMaster02/slipstream/internal/data"
 	"github.com/HashMaster02/slipstream/internal/datastructures"
@@ -17,10 +15,6 @@ import (
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
-type MarketDataPacket struct {
-	row   data.Row
-	event events.Event
-}
 
 type EngineState struct {
 	mu         sync.Mutex
@@ -33,24 +27,7 @@ var engineState EngineState = EngineState{
 	eventQueue: datastructures.NewQueue(),
 }
 
-func ReadData(reader *data.Reader, channel chan<- MarketDataPacket) {
-	for {
-		data, err := reader.Next()
-		if err == io.EOF {
-			reader.CloseReader()
-			break
-		}
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			break
-		}
-
-		e := events.MarketEvent{Type: events.MarketEventType, CreatedAt: time.Now()}
-		channel <- MarketDataPacket{row: data, event: e}
-	}
-}
-
-func ProcessChannels(c <-chan MarketDataPacket, engine *EngineState) {
+func ProcessChannels(c <-chan data.MarketDataPacket, engine *EngineState) {
 	// Both channels are unbuffered, which guarantees that we
 	// push data onto the rowHeap BEFORE we push a corresponding
 	// MarketEvent onto the eventQueue (which we want). If we ever
@@ -63,8 +40,8 @@ func ProcessChannels(c <-chan MarketDataPacket, engine *EngineState) {
 		}
 
 		engine.mu.Lock()
-		engine.rowHeap.PushEntry(&packet.row)
-		engine.eventQueue.Push(packet.event)
+		engine.rowHeap.PushEntry(&packet.Row)
+		engine.eventQueue.Push(packet.Event)
 		engine.mu.Unlock()
 	}
 }
@@ -73,7 +50,7 @@ func main() {
 
 	tickers := []string{"AAPL", "GS", "MSFT", "NVDA", "META", "GOOG", "T", "JPM"}
 
-	marketPacketChannel := make(chan MarketDataPacket)
+	marketPacketChannel := make(chan data.MarketDataPacket)
 
 	historicData := make(map[string][]*data.Row)
 
@@ -87,7 +64,7 @@ func main() {
 			os.Exit(-1)
 		}
 
-		go ReadData(reader, marketPacketChannel)
+		go data.ReadData(reader, marketPacketChannel)
 	}
 
 	// =========== Main engine loop ===============
