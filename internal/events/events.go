@@ -24,48 +24,50 @@ func (e EventType) String() string {
 }
 
 const (
-	MarketEventType EventType = iota;
+	MarketEventType EventType = iota
 	OrderEventType
 )
 
-
 type MarketEvent struct {
-	Type  EventType
+	Type      EventType
 	CreatedAt time.Time
 }
+
 var _ Event = MarketEvent{}
 
 func (m MarketEvent) Kind() EventType {
 	return m.Type
 }
 
-type OrderTypeType int8;
+type OrderDirection int8
+
 const (
-	Buy OrderTypeType = iota;
-	Sell
+	Buy  OrderDirection = 1
+	Sell OrderDirection = -1
 )
 
 type OrderEvent struct {
-	Type EventType
-	Symbol string
-	OrderType OrderTypeType
-	Price types.Price
-	PositionSize int64
-	BarTimestamp time.Time
-	CreatedAt time.Time
+	Type           EventType
+	Symbol         string
+	OrderDirection OrderDirection
+	Price          types.Price
+	PositionSize   int64
+	BarTimestamp   time.Time
+	CreatedAt      time.Time
 }
+
 var _ Event = OrderEvent{}
 
 func (m OrderEvent) Kind() EventType {
 	return m.Type
 }
-func (m OrderTypeType) String() string {
+func (m OrderDirection) String() string {
 	switch m {
 	case Buy:
 		return "Buy"
 	case Sell:
 		return "Sell"
 	default:
-		return fmt.Sprintf("OrderType(%d)", int8(m))
+		return fmt.Sprintf("OrderDirection(%d)", int8(m))
 	}
 }
