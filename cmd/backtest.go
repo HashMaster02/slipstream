@@ -1,37 +1,39 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"sync"
 	"time"
 
 	"github.com/HashMaster02/slipstream/internal/data"
 	"github.com/HashMaster02/slipstream/internal/datastructures"
 	"github.com/HashMaster02/slipstream/internal/events"
+	"github.com/HashMaster02/slipstream/internal/portfolio"
 	"github.com/HashMaster02/slipstream/pkg/strategy"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
 type MarketDataPacket struct {
-	row data.Row
+	row   data.Row
 	event events.Event
 }
 
 type EngineState struct {
-	mu sync.Mutex
-	rowHeap datastructures.RowHeap
+	mu         sync.Mutex
+	rowHeap    datastructures.RowHeap
 	eventQueue datastructures.Queue
 }
 
 var engineState EngineState = EngineState{
-	rowHeap: datastructures.RowHeap{},
+	rowHeap:    datastructures.RowHeap{},
 	eventQueue: datastructures.NewQueue(),
 }
 
-
-func ReadData(reader *data.Reader, channel chan <- MarketDataPacket) {
+func ReadData(reader *data.Reader, channel chan<- MarketDataPacket) {
 	for {
 		data, err := reader.Next()
 		if err == io.EOF {
@@ -48,15 +50,17 @@ func ReadData(reader *data.Reader, channel chan <- MarketDataPacket) {
 	}
 }
 
-
-func ProcessChannels(c <- chan MarketDataPacket, engine *EngineState) {
-	// Both channels are unbuffered, which guarantees that we 
+func ProcessChannels(c <-chan MarketDataPacket, engine *EngineState) {
+	// Both channels are unbuffered, which guarantees that we
 	// push data onto the rowHeap BEFORE we push a corresponding
-	// MarketEvent onto the eventQueue (which we want). If we ever 
+	// MarketEvent onto the eventQueue (which we want). If we ever
 	// buffer either of the channels, we will break this inherent sequence.
 	for c != nil {
-		packet, ok := <- c
-		if !ok {c = nil; continue}
+		packet, ok := <-c
+		if !ok {
+			c = nil
+			continue
+		}
 
 		engine.mu.Lock()
 		engine.rowHeap.PushEntry(&packet.row)
@@ -65,10 +69,9 @@ func ProcessChannels(c <- chan MarketDataPacket, engine *EngineState) {
 	}
 }
 
-
 func main() {
 
-	tickers := []string{"AAPL"}
+	tickers := []string{"AAPL", "GS", "MSFT", "NVDA", "META", "GOOG", "T", "JPM"}
 
 	marketPacketChannel := make(chan MarketDataPacket)
 
@@ -87,11 +90,26 @@ func main() {
 		go ReadData(reader, marketPacketChannel)
 	}
 
+	// =========== Main engine loop ===============
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
-	// Main engine loop. Perpetually runs until quit with Ctrl+C
-	// TODO: Shutdown engine gracefully on KILL signal (Ctrl+C)
-	strategy := strategy.NewBuyAndHoldOnClose(tickers, types.PriceFromFloat(269.00), types.PriceFromFloat(0.50), 100)
+	portfolio := &portfolio.Portfolio{
+		Positions: make(map[string]*portfolio.Position),
+	}
+	strategy := strategy.NewTakeProfit(tickers, types.PriceFromFloat(2.50), 100)
+
 	for {
+		// Break out of the loop when Ctrl+C (SIGINT) cancels the context.
+		// The default case keeps this non-blocking so the loop keeps
+		// draining events when no signal has arrived.
+		select {
+		case <-ctx.Done():
+			fmt.Println("\nShutting down engine...")
+			return
+		default:
+		}
+
 		// The engine waits for an event
 		engineState.mu.Lock()
 		event, succ := engineState.eventQueue.Pop()
@@ -101,8 +119,9 @@ func main() {
 		}
 
 		switch e := event.(type) {
-			case events.MarketEvent: {
-				
+		case events.MarketEvent:
+			{
+
 				engineState.mu.Lock()
 				// ======= run in go routine for each active strategy ========
 				order, succ := strategy.CalculateSignals(&engineState.rowHeap, &historicData)
@@ -112,13 +131,15 @@ func main() {
 				// ===========================================================
 
 				row := engineState.rowHeap.PopEntry()
+				portfolio.UpdatePrice(*row)
 				engineState.mu.Unlock()
 				historicData[row.Symbol] = append(historicData[row.Symbol], row)
 			}
-			case events.OrderEvent: {
-				fmt.Printf("BarTimestamp: %v, OrderType: %s, Price: %s, Symbol: %s\n", e.BarTimestamp, e.OrderType.String(), e.Price.String(), e.Symbol)
+		case events.OrderEvent:
+			{
+				portfolio.UpdatePosition(e)
+				fmt.Println(portfolio.String())
 			}
 		}
 	}
-	
 }
