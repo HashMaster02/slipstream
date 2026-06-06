@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HashMaster02/slipstream/internal/events"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
@@ -105,4 +106,26 @@ func (r *Reader) Next() (Row, error) {
 	}
 
 	return row, nil
+}
+
+type MarketDataPacket struct {
+	Row   Row
+	Event events.Event
+}
+
+func ReadData(reader *Reader, channel chan<- MarketDataPacket) {
+	for {
+		data, err := reader.Next()
+		if err == io.EOF {
+			reader.CloseReader()
+			break
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			break
+		}
+
+		e := events.MarketEvent{Type: events.MarketEventType, CreatedAt: time.Now()}
+		channel <- MarketDataPacket{Row: data, Event: e}
+	}
 }
