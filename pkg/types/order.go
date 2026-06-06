@@ -8,19 +8,24 @@ import (
 
 // OrderID is a simple uint64.
 type OrderID uint64
+
 var nextOrderID atomic.Uint64
 
 func init() {
-    nextOrderID.Store(uint64(time.Now().UnixNano()))
+	nextOrderID.Store(uint64(time.Now().UnixNano()))
 }
 
 func NewOrderID() OrderID {
-    return OrderID(nextOrderID.Add(1))
+	return OrderID(nextOrderID.Add(1))
 }
 
 // Side can be either Buy or Sell
-type Side int8 
-const (Buy Side = 1; Sell Side = -1)
+type Side int8
+
+const (
+	Buy  Side = 1
+	Sell Side = -1
+)
 
 func (s Side) String() string {
 	switch s {
@@ -40,7 +45,11 @@ func (s Side) isValid() bool {
 
 // OrderType can be Limit or Market
 type OrderType int8
-const (Limit OrderType = iota; Market)
+
+const (
+	Limit OrderType = iota
+	Market
+)
 
 func (ot OrderType) String() string {
 	switch ot {
@@ -59,7 +68,12 @@ func (ot OrderType) isValid() bool {
 
 // TIF is the 'time in force' which determines when an order will expire. Can be Day, IOC, or GTC
 type TIF int8
-const (Day TIF = iota; IOC; GTC)
+
+const (
+	Day TIF = iota
+	IOC
+	GTC
+)
 
 func (t TIF) String() string {
 	switch t {
@@ -90,17 +104,16 @@ type Order struct {
 	SubmittedAt time.Time
 }
 
-
 func NewOrder(symbol string, side Side, orderType OrderType, tif TIF, qty int64, price Price) (Order, error) {
 
-	order := Order {
-		ID: NewOrderID(),
-		Symbol: symbol,
-		Side: side,
-		Type: orderType,
-		TIF: tif,
-		Quantity: qty,
-		Price: price,
+	order := Order{
+		ID:          NewOrderID(),
+		Symbol:      symbol,
+		Side:        side,
+		Type:        orderType,
+		TIF:         tif,
+		Quantity:    qty,
+		Price:       price,
 		SubmittedAt: time.Now(),
 	}
 
@@ -113,18 +126,18 @@ func NewOrder(symbol string, side Side, orderType OrderType, tif TIF, qty int64,
 
 func (o Order) validate() error {
 	if !o.Side.isValid() {
-        return fmt.Errorf("invalid Side: %d", o.Side)
-    }
-    if !o.Type.isValid() {
-        return fmt.Errorf("invalid OrderType: %d", o.Type)
-    }
-    if !o.TIF.isValid() {
-        return fmt.Errorf("invalid TIF: %d", o.TIF)
-    }
-    return nil
+		return fmt.Errorf("invalid Side: %d", o.Side)
+	}
+	if !o.Type.isValid() {
+		return fmt.Errorf("invalid OrderType: %d", o.Type)
+	}
+	if !o.TIF.isValid() {
+		return fmt.Errorf("invalid TIF: %d", o.TIF)
+	}
+	return nil
 }
 
 func (o Order) String() string {
-	return fmt.Sprintf("Order ID: %d\nSymbol: %s\nSide: %s\nType: %s\nTIF: %s\nQty: %d\nPrice: %s\ntimestamp: %s", 
-						o.ID, o.Symbol, o.Side.String(), o.Type.String(), o.TIF.String(), o.Quantity, o.Price.String(), o.SubmittedAt)
+	return fmt.Sprintf("Order ID: %d\nSymbol: %s\nSide: %s\nType: %s\nTIF: %s\nQty: %d\nPrice: %s\ntimestamp: %s",
+		o.ID, o.Symbol, o.Side.String(), o.Type.String(), o.TIF.String(), o.Quantity, o.Price.String(), o.SubmittedAt)
 }

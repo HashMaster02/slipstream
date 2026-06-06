@@ -6,7 +6,6 @@ import (
 	"github.com/HashMaster02/slipstream/internal/data"
 )
 
-
 type RowHeap []*data.Row
 
 func (h RowHeap) Len() int {

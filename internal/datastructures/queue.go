@@ -24,7 +24,7 @@ func (q *Queue) Pop() (events.Event, bool) {
 
 	if item != nil {
 		q.items.Remove(item)
-		
+
 		if e, ok := item.Value.(events.Event); ok {
 			return e, true
 		}

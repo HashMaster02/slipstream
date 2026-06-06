@@ -14,22 +14,22 @@ import (
 
 type Row struct {
 	Timestamp time.Time
-	Symbol string
-	Open types.Price
-	High types.Price
-	Low types.Price
-	Close types.Price
-	Volume int64
+	Symbol    string
+	Open      types.Price
+	High      types.Price
+	Low       types.Price
+	Close     types.Price
+	Volume    int64
 }
 
 type Reader struct {
-	file *os.File
-	symbol string
+	file    *os.File
+	symbol  string
 	scanner *bufio.Scanner
 	currRow uint64
 }
 
-func NewReader(path string, sym string) (*Reader, error ) {
+func NewReader(path string, sym string) (*Reader, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not open file %s: %w", path, err)
@@ -60,7 +60,7 @@ func (r *Reader) Next() (Row, error) {
 	line := r.scanner.Text()
 	data := strings.Split(line, ",")
 
-	if (len(data) != ELEMENTS_PER_ROW) {
+	if len(data) != ELEMENTS_PER_ROW {
 		return Row{}, fmt.Errorf("Error on row %d. The row does not have enough items. Expected %d, got %d.", r.currRow, ELEMENTS_PER_ROW, len(data))
 	}
 
@@ -96,14 +96,13 @@ func (r *Reader) Next() (Row, error) {
 
 	row := Row{
 		Timestamp: time,
-		Symbol: r.symbol,
-		Open: open,
-		High: high,
-		Low: low,
-		Close: close,
-		Volume: volume,
+		Symbol:    r.symbol,
+		Open:      open,
+		High:      high,
+		Low:       low,
+		Close:     close,
+		Volume:    volume,
 	}
-
 
 	return row, nil
 }
