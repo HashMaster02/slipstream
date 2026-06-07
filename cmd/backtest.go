@@ -10,6 +10,7 @@ import (
 	"github.com/HashMaster02/slipstream/internal/data"
 	"github.com/HashMaster02/slipstream/internal/datastructures"
 	"github.com/HashMaster02/slipstream/internal/events"
+	"github.com/HashMaster02/slipstream/internal/metrics"
 	"github.com/HashMaster02/slipstream/internal/portfolio"
 	"github.com/HashMaster02/slipstream/pkg/strategy"
 	"github.com/HashMaster02/slipstream/pkg/types"
@@ -100,12 +101,12 @@ func main() {
 			{
 
 				engineState.mu.Lock()
-				// ======= run in go routine for each active strategy ========
+				// TODO: run in go routine for each active strategy ==========
 				order, succ := strategy.CalculateSignals(&engineState.rowHeap, &historicData)
 				if succ {
 					engineState.eventQueue.Push(order)
 				}
-				// ===========================================================
+				// TODO: =====================================================
 
 				row := engineState.rowHeap.PopEntry()
 				portfolio.UpdatePrice(*row)
@@ -115,7 +116,8 @@ func main() {
 		case events.OrderEvent:
 			{
 				portfolio.UpdatePosition(e)
-				fmt.Println(portfolio.String())
+				ticker, mVal := metrics.LargestPosition(portfolio)
+				fmt.Printf("The largest market value belongs to %s worth %s\n", ticker, mVal.String())
 			}
 		}
 	}
