@@ -58,7 +58,7 @@ func main() {
 	go ProcessChannels(marketPacketChannel, &engineState)
 
 	for _, ticker := range tickers {
-		filepath := fmt.Sprintf("./data/firstrate/stock_update_month_1min_adjsplit/%s_month_1min_adjsplit.txt", ticker)
+		filepath := fmt.Sprintf("./_data/firstrate/stock_update_month_1min_adjsplit/%s_month_1min_adjsplit.txt", ticker)
 		reader, err := data.NewReader(filepath, ticker)
 		if err != nil {
 			fmt.Print(fmt.Errorf("%s", err))
