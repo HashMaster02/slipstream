@@ -1,9 +1,6 @@
 package portfolio
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/HashMaster02/slipstream/internal/data"
 	"github.com/HashMaster02/slipstream/internal/events"
 	"github.com/HashMaster02/slipstream/pkg/types"
@@ -43,16 +40,4 @@ func (p *Portfolio) UpdatePrice(bar data.Row) {
 
 	position.SharePrice = bar.Close
 
-}
-
-func (p *Portfolio) String() string {
-	var perfLog strings.Builder
-
-	for ticker, pos := range p.Positions {
-		if pos.Qty != 0 {
-			fmt.Fprintf(&perfLog, "%s: %d shares at $%s/share\n", ticker, pos.Qty, pos.SharePrice.String())
-		}
-	}
-
-	return perfLog.String()
 }
