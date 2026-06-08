@@ -69,6 +69,12 @@ func main() {
 	}
 
 	// =========== Main engine loop ===============
+	METRIC_OUTPUT_FILE, err := os.OpenFile("./_output/metrics.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		fmt.Print(fmt.Errorf("%s", err))
+	}
+	defer METRIC_OUTPUT_FILE.Close()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -117,7 +123,11 @@ func main() {
 			{
 				portfolio.UpdatePosition(e)
 				ticker, mVal := metrics.LargestPosition(portfolio)
-				fmt.Printf("The largest market value belongs to %s worth %s\n", ticker, mVal.String())
+				succ := data.WriteToText(*METRIC_OUTPUT_FILE, fmt.Sprintf("LargestPosition:: Ticker: %s, MarketValue: %d\n", ticker, mVal))
+				if !succ {
+					fmt.Println("Failed to write to file.")
+				}
+
 			}
 		}
 	}
