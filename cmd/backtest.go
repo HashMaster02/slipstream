@@ -10,13 +10,11 @@ import (
 
 	"github.com/HashMaster02/slipstream/internal/data"
 	"github.com/HashMaster02/slipstream/internal/datastructures"
-	"github.com/HashMaster02/slipstream/internal/events"
 	"github.com/HashMaster02/slipstream/internal/metrics"
 	"github.com/HashMaster02/slipstream/internal/portfolio"
 	"github.com/HashMaster02/slipstream/pkg/strategy"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
-
 
 type EngineState struct {
 	mu         sync.Mutex
@@ -28,6 +26,9 @@ var engineState EngineState = EngineState{
 	rowHeap:    datastructures.RowHeap{},
 	eventQueue: datastructures.NewQueue(),
 }
+
+// TODO: Move this somewhere else at some point
+var latestBar map[string]*data.Row = make(map[string]*data.Row)
 
 func ProcessChannels(c <-chan data.MarketDataPacket, engine *EngineState) {
 	// Both channels are unbuffered, which guarantees that we
@@ -54,7 +55,10 @@ func main() {
 
 	marketPacketChannel := make(chan data.MarketDataPacket)
 
-	historicData := make(map[string][]*data.Row)
+	entryPrices := make(map[string]types.Price)
+	for _, symbol := range tickers {
+		entryPrices[symbol] = 0
+	}
 
 	go ProcessChannels(marketPacketChannel, &engineState)
 
@@ -82,7 +86,7 @@ func main() {
 	portfolio := &portfolio.Portfolio{
 		Positions: make(map[string]*portfolio.Position),
 	}
-	strategy := strategy.NewTakeProfit(tickers, types.PriceFromFloat(2.50), 100)
+	strategy := strategy.NewTakeProfit(tickers, types.PriceFromFloat(0.50), 100)
 
 	for {
 		// Break out of the loop when Ctrl+C (SIGINT) cancels the context.
@@ -95,45 +99,55 @@ func main() {
 		default:
 		}
 
-		// The engine waits for an event
+		// Get latest timestamp (tick)
 		engineState.mu.Lock()
-		event, succ := engineState.eventQueue.Pop()
+		var head *data.Row = engineState.rowHeap.Peek()
 		engineState.mu.Unlock()
-		if !succ {
+		if head == nil {
+			// Heap is empty (readers haven't produced data yet, or we've
+			// drained everything). Yield and retry rather than busy-spinning.
+			time.Sleep(time.Millisecond)
 			continue
 		}
 
-		switch e := event.(type) {
-		case events.MarketEvent:
-			{
+		var currentTick time.Time = head.Timestamp
 
-				engineState.mu.Lock()
-				// TODO: run in go routine for each active strategy ==========
-				order, succ := strategy.CalculateSignals(&engineState.rowHeap, &historicData)
-				if succ {
-					engineState.eventQueue.Push(order)
-				}
-				// TODO: =====================================================
+		// The engine updates all bars for securities
+		for {
 
-				row := engineState.rowHeap.PopEntry()
-				portfolio.UpdatePrice(*row)
+			engineState.mu.Lock()
+			next := engineState.rowHeap.Peek()
+			if next == nil || !next.Timestamp.Equal(currentTick) {
 				engineState.mu.Unlock()
-				historicData[row.Symbol] = append(historicData[row.Symbol], row)
+				break
 			}
-		case events.OrderEvent:
-			{
-				portfolio.UpdatePosition(e)
-				nav := metrics.NetAssetValue(portfolio)
-				fmt.Printf("\033[2J\033[3J\033[H%s", nav)
 
-				time.Sleep(1 * time.Second)
-				// ticker, mVal := metrics.LargestPosition(portfolio)
-				// succ := data.WriteToText(*METRIC_OUTPUT_FILE, fmt.Sprintf("LargestPosition:: Ticker: %s, MarketValue: %d\n", ticker, mVal))
-				// if !succ {
-				// 	fmt.Println("Failed to write to file.")
-				// }
+			var nextBar *data.Row = engineState.rowHeap.PopEntry()
+			engineState.mu.Unlock()
+			latestBar[nextBar.Symbol] = nextBar
 
+			// Update latest market prices for portfolio
+			// ! Edge Case: What if our portfolio has positions for securities we are not currently processing?
+			portfolio.UpdatePrice(*nextBar)
+		}
+
+		// TODO: Process OrderBook
+
+		// Calculate signals from strategies
+		// TODO: run in go routine for each active strategy ==========
+		engineState.mu.Lock()
+		orders, succ := strategy.CalculateSignals(&latestBar)
+		if succ {
+			for _, order := range orders {
+				portfolio.UpdatePosition(order)
 			}
 		}
+		engineState.mu.Unlock()
+		// TODO: =====================================================
+
+		nav := metrics.NetAssetValue(portfolio)
+		fmt.Printf("\033[2J\033[3J\033[H%s", nav)
+
+		time.Sleep(500 * time.Millisecond) // so we can watch the numbers on the terminal
 	}
 }

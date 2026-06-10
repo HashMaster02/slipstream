@@ -23,7 +23,7 @@ func NetAssetValue(portfolio *portfolio.Portfolio) string {
 func LargestPosition(portfolio *portfolio.Portfolio) (string, types.Price) {
 	type MaxPosition struct {
 		MarketValue types.Price
-		Symbol		string
+		Symbol      string
 	}
 
 	var max MaxPosition = MaxPosition{MarketValue: 0, Symbol: ""}
@@ -31,7 +31,7 @@ func LargestPosition(portfolio *portfolio.Portfolio) (string, types.Price) {
 	for ticker, pos := range portfolio.Positions {
 		if pos.Qty != 0 {
 			marketVal := pos.SharePrice * types.Price(pos.Qty)
-			if max.MarketValue <  marketVal {
+			if max.MarketValue < marketVal {
 				max.MarketValue = marketVal
 				max.Symbol = ticker
 			}
