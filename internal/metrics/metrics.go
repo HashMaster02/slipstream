@@ -13,7 +13,7 @@ func NetAssetValue(portfolio *portfolio.Portfolio) string {
 
 	for ticker, pos := range portfolio.Positions {
 		if pos.Qty != 0 {
-			fmt.Fprintf(&perfLog, "%s: %d shares at $%s/share\n", ticker, pos.Qty, pos.SharePrice.String())
+			fmt.Fprintf(&perfLog, "\x1b[1;36m%5s:\x1b[0m %d shares at $%s/share\n", ticker, pos.Qty, pos.SharePrice.String())
 		}
 	}
 

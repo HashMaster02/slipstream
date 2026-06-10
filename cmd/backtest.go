@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	"github.com/HashMaster02/slipstream/internal/data"
 	"github.com/HashMaster02/slipstream/internal/datastructures"
@@ -122,11 +123,15 @@ func main() {
 		case events.OrderEvent:
 			{
 				portfolio.UpdatePosition(e)
-				ticker, mVal := metrics.LargestPosition(portfolio)
-				succ := data.WriteToText(*METRIC_OUTPUT_FILE, fmt.Sprintf("LargestPosition:: Ticker: %s, MarketValue: %d\n", ticker, mVal))
-				if !succ {
-					fmt.Println("Failed to write to file.")
-				}
+				nav := metrics.NetAssetValue(portfolio)
+				fmt.Printf("\033[2J\033[3J\033[H%s", nav)
+
+				time.Sleep(1 * time.Second)
+				// ticker, mVal := metrics.LargestPosition(portfolio)
+				// succ := data.WriteToText(*METRIC_OUTPUT_FILE, fmt.Sprintf("LargestPosition:: Ticker: %s, MarketValue: %d\n", ticker, mVal))
+				// if !succ {
+				// 	fmt.Println("Failed to write to file.")
+				// }
 
 			}
 		}
