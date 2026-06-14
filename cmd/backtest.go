@@ -19,12 +19,10 @@ import (
 type EngineState struct {
 	mu         sync.Mutex
 	rowHeap    datastructures.RowHeap
-	eventQueue datastructures.Queue
 }
 
 var engineState EngineState = EngineState{
 	rowHeap:    datastructures.RowHeap{},
-	eventQueue: datastructures.NewQueue(),
 }
 
 // TODO: Move this somewhere else at some point
@@ -39,9 +37,9 @@ func ProcessOrders(port *portfolio.Portfolio) {
 			continue
 		}
 
-		// If Market Buy, buy immediately
 		switch order.Type {
 			case types.Market: {
+			// If Market Buy/Sell, execute at next available price
 				fill, err := types.NewFill(
 					order.Symbol,
 					order.Side,
@@ -77,21 +75,20 @@ func ProcessOrders(port *portfolio.Portfolio) {
 	}
 }
 
-func ProcessChannels(c <-chan data.MarketDataPacket, engine *EngineState) {
+func ProcessChannels(c <-chan data.Row, engine *EngineState) {
 	// Both channels are unbuffered, which guarantees that we
 	// push data onto the rowHeap BEFORE we push a corresponding
 	// MarketEvent onto the eventQueue (which we want). If we ever
 	// buffer either of the channels, we will break this inherent sequence.
 	for c != nil {
-		packet, ok := <-c
+		row, ok := <-c
 		if !ok {
 			c = nil
 			continue
 		}
 
 		engine.mu.Lock()
-		engine.rowHeap.PushEntry(&packet.Row)
-		engine.eventQueue.Push(packet.Event)
+		engine.rowHeap.PushEntry(&row)
 		engine.mu.Unlock()
 	}
 }
@@ -100,7 +97,7 @@ func main() {
 
 	tickers := []string{"AAPL", "GS", "MSFT", "NVDA", "META", "GOOG", "T", "JPM"}
 
-	marketPacketChannel := make(chan data.MarketDataPacket)
+	marketPacketChannel := make(chan data.Row)
 
 	entryPrices := make(map[string]types.Price)
 	for _, symbol := range tickers {
