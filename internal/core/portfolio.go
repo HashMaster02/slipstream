@@ -1,4 +1,4 @@
-package portfolio
+package core
 
 import (
 	"github.com/HashMaster02/slipstream/internal/data"

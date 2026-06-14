@@ -1,8 +1,8 @@
 package strategy
 
 import (
+	"github.com/HashMaster02/slipstream/internal/core"
 	"github.com/HashMaster02/slipstream/internal/data"
-	"github.com/HashMaster02/slipstream/internal/portfolio"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
@@ -22,7 +22,7 @@ func NewTakeProfit(symbols []string, takeProfit types.Price, positionSize int64)
 	return TakeProfit{Watchlist: symbols, PositionSize: positionSize, EntryPrice: entryPrices, TakeProfit: takeProfit}
 }
 
-func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Row, port *portfolio.Portfolio) []types.Order {
+func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Row, port *core.Portfolio) []types.Order {
 
 	orders := make([]types.Order, len(strat.Watchlist))
 
@@ -32,7 +32,7 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Row, port
 
 		if !succ {
 			// Init a new position within the portfolio
-			position = &portfolio.Position{
+			position = &core.Position{
 				Symbol: symbol,
 				Qty: 0,
 				CurrentSharePrice: types.PriceFromFloat(0),

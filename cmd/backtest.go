@@ -8,21 +8,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HashMaster02/slipstream/internal/core"
 	"github.com/HashMaster02/slipstream/internal/data"
-	"github.com/HashMaster02/slipstream/internal/datastructures"
 	"github.com/HashMaster02/slipstream/internal/metrics"
-	"github.com/HashMaster02/slipstream/internal/portfolio"
 	"github.com/HashMaster02/slipstream/pkg/strategy"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
 type EngineState struct {
 	mu         sync.Mutex
-	rowHeap    datastructures.RowHeap
+	rowHeap    core.RowHeap
 }
 
 var engineState EngineState = EngineState{
-	rowHeap:    datastructures.RowHeap{},
+	rowHeap:    core.RowHeap{},
 }
 
 // TODO: Move this somewhere else at some point
@@ -30,7 +29,7 @@ var latestBar map[string]*data.Row = make(map[string]*data.Row)
 
 // TODO: Keep track of multiple orders for same stock
 var pendingOrders map[string]*types.Order = make(map[string]*types.Order)
-func ProcessOrders(port *portfolio.Portfolio) {
+func ProcessOrders(port *core.Portfolio) {
 	for _, order := range pendingOrders {
 		value, succ := latestBar[order.Symbol]
 		if !succ {
@@ -127,8 +126,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	portfolio := &portfolio.Portfolio{
-		Positions: make(map[string]*portfolio.Position),
+	portfolio := &core.Portfolio{
+		Positions: make(map[string]*core.Position),
 	}
 	strategy := strategy.NewTakeProfit(tickers, types.PriceFromFloat(0.50), 100)
 

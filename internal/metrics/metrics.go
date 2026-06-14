@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/HashMaster02/slipstream/internal/portfolio"
+	"github.com/HashMaster02/slipstream/internal/core"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
-func NetAssetValue(portfolio *portfolio.Portfolio) string {
+func NetAssetValue(portfolio *core.Portfolio) string {
 	var perfLog strings.Builder
 
 	for ticker, pos := range portfolio.Positions {
@@ -20,7 +20,7 @@ func NetAssetValue(portfolio *portfolio.Portfolio) string {
 	return perfLog.String()
 }
 
-func LargestPosition(portfolio *portfolio.Portfolio) (string, types.Price) {
+func LargestPosition(portfolio *core.Portfolio) (string, types.Price) {
 	type MaxPosition struct {
 		MarketValue types.Price
 		Symbol      string
