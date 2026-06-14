@@ -30,6 +30,53 @@ var engineState EngineState = EngineState{
 // TODO: Move this somewhere else at some point
 var latestBar map[string]*data.Row = make(map[string]*data.Row)
 
+// TODO: Keep track of multiple orders for same stock
+var pendingOrders map[string]*types.Order = make(map[string]*types.Order)
+func ProcessOrders(port *portfolio.Portfolio) {
+	for _, order := range pendingOrders {
+		value, succ := latestBar[order.Symbol]
+		if !succ {
+			continue
+		}
+
+		// If Market Buy, buy immediately
+		switch order.Type {
+			case types.Market: {
+				fill, err := types.NewFill(
+					order.Symbol,
+					order.Side,
+					order.Type,
+					order.Quantity,
+					value.Close,
+				)
+				if err != nil {
+					fmt.Print(fmt.Errorf("%s", err))
+					continue
+				}
+				port.UpdatePosition(&fill)
+				delete(pendingOrders, value.Symbol)
+			}
+			case types.Limit: {
+				if ((order.Side == types.Buy) && (value.Close <= order.Price)) || ((order.Side == types.Sell) && (value.Close >= order.Price)) {
+					fill, err := types.NewFill(
+						order.Symbol,
+						order.Side,
+						order.Type,
+						order.Quantity,
+						value.Close,
+					)
+					if err != nil {
+						fmt.Print(fmt.Errorf("%s", err))
+						continue
+					}
+					port.UpdatePosition(&fill)
+					delete(pendingOrders, value.Symbol)
+				}
+			}
+		}
+	}
+}
+
 func ProcessChannels(c <-chan data.MarketDataPacket, engine *EngineState) {
 	// Both channels are unbuffered, which guarantees that we
 	// push data onto the rowHeap BEFORE we push a corresponding
@@ -131,23 +178,24 @@ func main() {
 			portfolio.UpdatePrice(*nextBar)
 		}
 
-		// TODO: Process OrderBook
+		ProcessOrders(portfolio)
 
 		// Calculate signals from strategies
 		// TODO: run in go routine for each active strategy ==========
 		engineState.mu.Lock()
-		orders, succ := strategy.CalculateSignals(&latestBar)
-		if succ {
-			for _, order := range orders {
-				portfolio.UpdatePosition(order)
-			}
-		}
+		newOrders := strategy.CalculateSignals(&latestBar, portfolio)
 		engineState.mu.Unlock()
 		// TODO: =====================================================
+		
+		// TODO: Have CalculateSignals append to this directly somehow
+		for _, o := range newOrders {
+			pendingOrders[o.Symbol] = &o
+		}
+
 
 		nav := metrics.NetAssetValue(portfolio)
 		fmt.Printf("\033[2J\033[3J\033[H%s", nav)
 
-		time.Sleep(500 * time.Millisecond) // so we can watch the numbers on the terminal
+		// time.Sleep(500 * time.Millisecond) // so we can watch the numbers on the terminal
 	}
 }
