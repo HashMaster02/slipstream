@@ -13,7 +13,7 @@ func NetAssetValue(portfolio *portfolio.Portfolio) string {
 
 	for ticker, pos := range portfolio.Positions {
 		if pos.Qty != 0 {
-			fmt.Fprintf(&perfLog, "\x1b[1;36m%5s:\x1b[0m %d shares at $%s/share\n", ticker, pos.Qty, pos.SharePrice.String())
+			fmt.Fprintf(&perfLog, "\x1b[1;36m%5s:\x1b[0m %d shares at $%s/share\n", ticker, pos.Qty, pos.CurrentSharePrice.String())
 		}
 	}
 
@@ -30,7 +30,7 @@ func LargestPosition(portfolio *portfolio.Portfolio) (string, types.Price) {
 
 	for ticker, pos := range portfolio.Positions {
 		if pos.Qty != 0 {
-			marketVal := pos.SharePrice * types.Price(pos.Qty)
+			marketVal := pos.CurrentSharePrice * types.Price(pos.Qty)
 			if max.MarketValue < marketVal {
 				max.MarketValue = marketVal
 				max.Symbol = ticker
