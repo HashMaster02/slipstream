@@ -1,75 +1,82 @@
 package strategy
 
 import (
-	"time"
-
+	"github.com/HashMaster02/slipstream/internal/core"
 	"github.com/HashMaster02/slipstream/internal/data"
-	"github.com/HashMaster02/slipstream/internal/events"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
 type TakeProfit struct {
 	Watchlist    []string
-	Positions    map[string]int64
 	PositionSize int64
 	EntryPrice   map[string]types.Price
 	TakeProfit   types.Price
 }
 
 func NewTakeProfit(symbols []string, takeProfit types.Price, positionSize int64) TakeProfit {
-	positions := make(map[string]int64)
-	for _, symbol := range symbols {
-		positions[symbol] = 0
-	}
-
 	entryPrices := make(map[string]types.Price)
 	for _, symbol := range symbols {
 		entryPrices[symbol] = 0
 	}
 
-	return TakeProfit{Watchlist: symbols, Positions: positions, PositionSize: positionSize, EntryPrice: entryPrices, TakeProfit: takeProfit}
+	return TakeProfit{Watchlist: symbols, PositionSize: positionSize, EntryPrice: entryPrices, TakeProfit: takeProfit}
 }
 
-func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Row) ([]events.OrderEvent, bool) {
-	// TODO: Orders should be submitted directly to the execution handler (once it exists) instead of being returned as a list
-	var orderEvents []events.OrderEvent = make([]events.OrderEvent, len(strat.Watchlist))
+func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Candle, port *core.Portfolio) []types.Order {
+
+	orders := make([]types.Order, len(strat.Watchlist))
 
 	for _, symbol := range strat.Watchlist {
 		bar := (*marketData)[symbol]
-		// fmt.Printf("%s current bar Close: %s\n", bar.Symbol, bar.Close)
-		// fmt.Printf("%s Entry price: %s\n", bar.Symbol, strat.EntryPrice[bar.Symbol].String())
+		position, succ := port.Positions[bar.Symbol]
 
-		orderEvent := events.OrderEvent{
-			Type:         events.OrderEventType,
-			Symbol:       bar.Symbol,
-			BarTimestamp: bar.Timestamp,
+		if !succ {
+			// Init a new position within the portfolio
+			position = &core.Position{
+				Symbol: symbol,
+				Qty: 0,
+				CurrentSharePrice: types.PriceFromFloat(0),
+				CostBasis: types.PriceFromFloat(0),
+			}
+			port.Positions[symbol] = position
 		}
 
-		if strat.Positions[bar.Symbol] > 0 {
-			exitPrice := strat.EntryPrice[bar.Symbol] + strat.TakeProfit
-			// fmt.Printf("%s exitPrice: %s\n", bar.Symbol, exitPrice)
+		if position.Qty == 0 {
+			// Buy signal
+			position.CurrentSharePrice = bar.Close
+
+			order, err := types.NewOrder(bar.Symbol,
+							types.Buy,
+							types.Market,
+							types.GTC,
+							strat.PositionSize,
+							bar.Close,
+						)
+			if err != nil {
+				return orders
+			}
+			orders = append(orders, order)
+
+		} else {
+			// Sell signal
+			exitPrice := position.CostBasis + strat.TakeProfit
 			if bar.Close < exitPrice {
 				continue
 			}
 
-			strat.Positions[bar.Symbol] -= strat.PositionSize
-			orderEvent.PositionSize = strat.PositionSize
-			orderEvent.OrderDirection = events.Sell
-			orderEvent.Price = exitPrice
-			orderEvent.CreatedAt = time.Now()
-			// fmt.Printf("%s Exit: $%s", orderEvent.Symbol, orderEvent.Price)
-			orderEvents = append(orderEvents, orderEvent)
-		} else {
-			strat.Positions[bar.Symbol] += strat.PositionSize
-			strat.EntryPrice[bar.Symbol] = bar.Close
+			order, err := types.NewOrder(bar.Symbol,
+							types.Sell,
+							types.Limit,
+							types.GTC,
+							strat.PositionSize,
+							exitPrice,
+						)
+			if err != nil {
+				return orders
+			}
 
-			orderEvent.PositionSize = strat.PositionSize
-			orderEvent.OrderDirection = events.Buy
-			orderEvent.Price = bar.Close
-			orderEvent.CreatedAt = time.Now()
-			// fmt.Printf("%s Entry: $%s\n", orderEvent.Symbol, orderEvent.Price)
-			orderEvents = append(orderEvents, orderEvent)
+			orders = append(orders, order)
 		}
 	}
-	return orderEvents, len(orderEvents) > 0
+	return orders
 }

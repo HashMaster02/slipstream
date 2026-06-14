@@ -8,43 +8,102 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HashMaster02/slipstream/internal/core"
 	"github.com/HashMaster02/slipstream/internal/data"
-	"github.com/HashMaster02/slipstream/internal/datastructures"
 	"github.com/HashMaster02/slipstream/internal/metrics"
-	"github.com/HashMaster02/slipstream/internal/portfolio"
 	"github.com/HashMaster02/slipstream/pkg/strategy"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
 type EngineState struct {
-	mu         sync.Mutex
-	rowHeap    datastructures.RowHeap
-	eventQueue datastructures.Queue
+	mu      sync.Mutex
+	rowHeap core.CandleHeap
 }
 
 var engineState EngineState = EngineState{
-	rowHeap:    datastructures.RowHeap{},
-	eventQueue: datastructures.NewQueue(),
+	rowHeap: core.CandleHeap{},
 }
 
 // TODO: Move this somewhere else at some point
-var latestBar map[string]*data.Row = make(map[string]*data.Row)
+var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
 
-func ProcessChannels(c <-chan data.MarketDataPacket, engine *EngineState) {
+var pendingOrders map[string][]*types.Order = make(map[string][]*types.Order)
+
+func ProcessOrders(port *core.Portfolio) {
+	for symbol, orders := range pendingOrders {
+		bar, succ := latestBar[symbol]
+		if !succ {
+			continue
+		}
+		remaining := orders[:0]
+
+		for _, order := range orders {
+			var filled bool = false
+
+			switch order.Type {
+			case types.Market:
+				{
+					fill, err := types.NewFill(
+						order.Symbol,
+						order.Side,
+						order.Type,
+						order.Quantity,
+						bar.Close,
+					)
+					if err != nil {
+						fmt.Print(fmt.Errorf("%s", err))
+						continue
+					}
+					port.UpdatePosition(&fill)
+					filled = true
+				}
+			case types.Limit:
+				{
+					if ((order.Side == types.Buy) && (bar.Close <= order.Price)) || ((order.Side == types.Sell) && (bar.Close >= order.Price)) {
+						fill, err := types.NewFill(
+							order.Symbol,
+							order.Side,
+							order.Type,
+							order.Quantity,
+							bar.Close,
+						)
+						if err != nil {
+							fmt.Print(fmt.Errorf("%s", err))
+							continue
+						}
+						port.UpdatePosition(&fill)
+						filled = true
+
+					}
+				}
+
+			}
+			if !filled {
+				remaining = append(remaining, order)
+			}
+		}
+		if len(remaining) == 0 {
+			pendingOrders[symbol] = nil
+		} else {
+			pendingOrders[symbol] = remaining
+		}
+	}
+}
+
+func ProcessChannels(c <-chan data.Candle, engine *EngineState) {
 	// Both channels are unbuffered, which guarantees that we
 	// push data onto the rowHeap BEFORE we push a corresponding
 	// MarketEvent onto the eventQueue (which we want). If we ever
 	// buffer either of the channels, we will break this inherent sequence.
 	for c != nil {
-		packet, ok := <-c
+		row, ok := <-c
 		if !ok {
 			c = nil
 			continue
 		}
 
 		engine.mu.Lock()
-		engine.rowHeap.PushEntry(&packet.Row)
-		engine.eventQueue.Push(packet.Event)
+		engine.rowHeap.PushEntry(&row)
 		engine.mu.Unlock()
 	}
 }
@@ -53,7 +112,7 @@ func main() {
 
 	tickers := []string{"AAPL", "GS", "MSFT", "NVDA", "META", "GOOG", "T", "JPM"}
 
-	marketPacketChannel := make(chan data.MarketDataPacket)
+	marketPacketChannel := make(chan data.Candle)
 
 	entryPrices := make(map[string]types.Price)
 	for _, symbol := range tickers {
@@ -83,8 +142,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	portfolio := &portfolio.Portfolio{
-		Positions: make(map[string]*portfolio.Position),
+	portfolio := &core.Portfolio{
+		Positions: make(map[string]*core.Position),
 	}
 	strategy := strategy.NewTakeProfit(tickers, types.PriceFromFloat(0.50), 100)
 
@@ -101,7 +160,7 @@ func main() {
 
 		// Get latest timestamp (tick)
 		engineState.mu.Lock()
-		var head *data.Row = engineState.rowHeap.Peek()
+		var head *data.Candle = engineState.rowHeap.Peek()
 		engineState.mu.Unlock()
 		if head == nil {
 			// Heap is empty (readers haven't produced data yet, or we've
@@ -122,7 +181,7 @@ func main() {
 				break
 			}
 
-			var nextBar *data.Row = engineState.rowHeap.PopEntry()
+			var nextBar *data.Candle = engineState.rowHeap.PopEntry()
 			engineState.mu.Unlock()
 			latestBar[nextBar.Symbol] = nextBar
 
@@ -131,23 +190,23 @@ func main() {
 			portfolio.UpdatePrice(*nextBar)
 		}
 
-		// TODO: Process OrderBook
+		ProcessOrders(portfolio)
 
 		// Calculate signals from strategies
 		// TODO: run in go routine for each active strategy ==========
 		engineState.mu.Lock()
-		orders, succ := strategy.CalculateSignals(&latestBar)
-		if succ {
-			for _, order := range orders {
-				portfolio.UpdatePosition(order)
-			}
-		}
+		newOrders := strategy.CalculateSignals(&latestBar, portfolio)
 		engineState.mu.Unlock()
 		// TODO: =====================================================
+
+		// TODO: Have CalculateSignals append to this directly somehow
+		for _, o := range newOrders {
+			pendingOrders[o.Symbol] = append(pendingOrders[o.Symbol], &o)
+		}
 
 		nav := metrics.NetAssetValue(portfolio)
 		fmt.Printf("\033[2J\033[3J\033[H%s", nav)
 
-		time.Sleep(500 * time.Millisecond) // so we can watch the numbers on the terminal
+		// time.Sleep(500 * time.Millisecond) // so we can watch the numbers on the terminal
 	}
 }
