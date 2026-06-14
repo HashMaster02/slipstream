@@ -16,64 +16,77 @@ import (
 )
 
 type EngineState struct {
-	mu         sync.Mutex
-	rowHeap    core.CandleHeap
+	mu      sync.Mutex
+	rowHeap core.CandleHeap
 }
 
 var engineState EngineState = EngineState{
-	rowHeap:    core.CandleHeap{},
+	rowHeap: core.CandleHeap{},
 }
 
 // TODO: Move this somewhere else at some point
 var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
 
 var pendingOrders map[string][]*types.Order = make(map[string][]*types.Order)
+
 func ProcessOrders(port *core.Portfolio) {
-	for _, orders := range pendingOrders {
-
-	for _, order := range orders {
-
-		value, succ := latestBar[order.Symbol]
+	for symbol, orders := range pendingOrders {
+		bar, succ := latestBar[symbol]
 		if !succ {
 			continue
 		}
+		remaining := orders[:0]
 
-		switch order.Type {
-			case types.Market: {
-			// If Market Buy/Sell, execute at next available price
-				fill, err := types.NewFill(
-					order.Symbol,
-					order.Side,
-					order.Type,
-					order.Quantity,
-					value.Close,
-				)
-				if err != nil {
-					fmt.Print(fmt.Errorf("%s", err))
-					continue
-				}
-				port.UpdatePosition(&fill)
-				delete(pendingOrders, value.Symbol)
-			}
-			case types.Limit: {
-				if ((order.Side == types.Buy) && (value.Close <= order.Price)) || ((order.Side == types.Sell) && (value.Close >= order.Price)) {
+		for _, order := range orders {
+			var filled bool = false
+
+			switch order.Type {
+			case types.Market:
+				{
 					fill, err := types.NewFill(
 						order.Symbol,
 						order.Side,
 						order.Type,
 						order.Quantity,
-						value.Close,
+						bar.Close,
 					)
 					if err != nil {
 						fmt.Print(fmt.Errorf("%s", err))
 						continue
 					}
 					port.UpdatePosition(&fill)
-					delete(pendingOrders, value.Symbol)
+					filled = true
 				}
+			case types.Limit:
+				{
+					if ((order.Side == types.Buy) && (bar.Close <= order.Price)) || ((order.Side == types.Sell) && (bar.Close >= order.Price)) {
+						fill, err := types.NewFill(
+							order.Symbol,
+							order.Side,
+							order.Type,
+							order.Quantity,
+							bar.Close,
+						)
+						if err != nil {
+							fmt.Print(fmt.Errorf("%s", err))
+							continue
+						}
+						port.UpdatePosition(&fill)
+						filled = true
+
+					}
+				}
+
+			}
+			if !filled {
+				remaining = append(remaining, order)
 			}
 		}
-	}
+		if len(remaining) == 0 {
+			pendingOrders[symbol] = nil
+		} else {
+			pendingOrders[symbol] = remaining
+		}
 	}
 }
 
@@ -185,12 +198,11 @@ func main() {
 		newOrders := strategy.CalculateSignals(&latestBar, portfolio)
 		engineState.mu.Unlock()
 		// TODO: =====================================================
-		
+
 		// TODO: Have CalculateSignals append to this directly somehow
 		for _, o := range newOrders {
 			pendingOrders[o.Symbol] = append(pendingOrders[o.Symbol], &o)
 		}
-
 
 		nav := metrics.NetAssetValue(portfolio)
 		fmt.Printf("\033[2J\033[3J\033[H%s", nav)
