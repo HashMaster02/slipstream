@@ -27,7 +27,6 @@ var engineState EngineState = EngineState{
 // TODO: Move this somewhere else at some point
 var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
 
-// TODO: Keep track of multiple orders for same stock
 var pendingOrders map[string][]*types.Order = make(map[string][]*types.Order)
 func ProcessOrders(port *core.Portfolio) {
 	for _, orders := range pendingOrders {
