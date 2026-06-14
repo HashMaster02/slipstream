@@ -2,33 +2,31 @@ package portfolio
 
 import (
 	"github.com/HashMaster02/slipstream/internal/data"
-	"github.com/HashMaster02/slipstream/internal/events"
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
 type Position struct {
 	Symbol     string
 	Qty        int64
-	SharePrice types.Price
+	CurrentSharePrice types.Price
+	CostBasis  types.Price
 }
 
 type Portfolio struct {
 	Positions map[string]*Position
 }
 
-// TODO: This function should receive a FillEvent in the future
-func (p *Portfolio) UpdatePosition(order events.OrderEvent) {
-
-	position, ok := p.Positions[order.Symbol]
+func (p *Portfolio) UpdatePosition(fill *types.Fill) {
+	position, ok := p.Positions[fill.Symbol]
 	if !ok {
-		position = &Position{Symbol: order.Symbol, Qty: order.PositionSize, SharePrice: order.Price}
-		p.Positions[order.Symbol] = position
+		position = &Position{Symbol: fill.Symbol, Qty: int64(fill.Side) * fill.Quantity , CurrentSharePrice: fill.Price, CostBasis: fill.Price}
+		p.Positions[fill.Symbol] = position
 		return
 	}
 
-	position.Qty += int64(order.OrderDirection) * order.PositionSize
-	position.SharePrice = order.Price
-
+	position.Qty += int64(fill.Side) * fill.Quantity
+	position.CostBasis= fill.Price
+	position.CurrentSharePrice = fill.Price
 }
 
 func (p *Portfolio) UpdatePrice(bar data.Row) {
@@ -38,6 +36,6 @@ func (p *Portfolio) UpdatePrice(bar data.Row) {
 		return
 	}
 
-	position.SharePrice = bar.Close
+	position.CurrentSharePrice = bar.Close
 
 }
