@@ -28,9 +28,12 @@ var engineState EngineState = EngineState{
 var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
 
 // TODO: Keep track of multiple orders for same stock
-var pendingOrders map[string]*types.Order = make(map[string]*types.Order)
+var pendingOrders map[string][]*types.Order = make(map[string][]*types.Order)
 func ProcessOrders(port *core.Portfolio) {
-	for _, order := range pendingOrders {
+	for _, orders := range pendingOrders {
+
+	for _, order := range orders {
+
 		value, succ := latestBar[order.Symbol]
 		if !succ {
 			continue
@@ -71,6 +74,7 @@ func ProcessOrders(port *core.Portfolio) {
 				}
 			}
 		}
+	}
 	}
 }
 
@@ -185,7 +189,7 @@ func main() {
 		
 		// TODO: Have CalculateSignals append to this directly somehow
 		for _, o := range newOrders {
-			pendingOrders[o.Symbol] = &o
+			pendingOrders[o.Symbol] = append(pendingOrders[o.Symbol], &o)
 		}
 
 
