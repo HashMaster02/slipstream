@@ -22,7 +22,7 @@ func NewTakeProfit(symbols []string, takeProfit types.Price, positionSize int64)
 	return TakeProfit{Watchlist: symbols, PositionSize: positionSize, EntryPrice: entryPrices, TakeProfit: takeProfit}
 }
 
-func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Row, port *core.Portfolio) []types.Order {
+func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Candle, port *core.Portfolio) []types.Order {
 
 	orders := make([]types.Order, len(strat.Watchlist))
 

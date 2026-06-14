@@ -29,7 +29,7 @@ func (p *Portfolio) UpdatePosition(fill *types.Fill) {
 	position.CurrentSharePrice = fill.Price
 }
 
-func (p *Portfolio) UpdatePrice(bar data.Row) {
+func (p *Portfolio) UpdatePrice(bar data.Candle) {
 
 	position, ok := p.Positions[bar.Symbol]
 	if !ok {

@@ -6,28 +6,28 @@ import (
 	"github.com/HashMaster02/slipstream/internal/data"
 )
 
-type RowHeap []*data.Row
+type CandleHeap []*data.Candle
 
-func (h RowHeap) Len() int {
+func (h CandleHeap) Len() int {
 	return len(h)
 }
 
-func (h RowHeap) Less(i, j int) bool {
+func (h CandleHeap) Less(i, j int) bool {
 	return h[i].Timestamp.Before(h[j].Timestamp)
 }
 
-func (h RowHeap) Swap(i, j int) {
+func (h CandleHeap) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
 // Push and Pop implement container/heap.Interface. They must keep the any
-// signatures so heap.Push/heap.Pop accept *RowHeap. Prefer the typed
+// signatures so heap.Push/heap.Pop accept *CandleHeap. Prefer the typed
 // PushEntry/PopEntry wrappers below for application code.
-func (h *RowHeap) Push(x any) {
-	*h = append(*h, x.(*data.Row))
+func (h *CandleHeap) Push(x any) {
+	*h = append(*h, x.(*data.Candle))
 }
 
-func (h *RowHeap) Pop() any {
+func (h *CandleHeap) Pop() any {
 	old := *h
 	n := len(old)
 	x := old[n-1]
@@ -37,18 +37,18 @@ func (h *RowHeap) Pop() any {
 }
 
 // PushEntry adds e to the heap, restoring heap order.
-func (h *RowHeap) PushEntry(e *data.Row) {
+func (h *CandleHeap) PushEntry(e *data.Candle) {
 	heap.Push(h, e)
 }
 
-// PopEntry removes and returns the earliest data.Row from the heap.
-func (h *RowHeap) PopEntry() *data.Row {
-	return heap.Pop(h).(*data.Row)
+// PopEntry removes and returns the earliest data.Candle from the heap.
+func (h *CandleHeap) PopEntry() *data.Candle {
+	return heap.Pop(h).(*data.Candle)
 }
 
-// Peek returns the earliest data.Row without removing it, or nil if the
+// Peek returns the earliest data.Candle without removing it, or nil if the
 // heap is empty.
-func (h *RowHeap) Peek() *data.Row {
+func (h *CandleHeap) Peek() *data.Candle {
 	old := *h
 	if len(old) == 0 {
 		return nil

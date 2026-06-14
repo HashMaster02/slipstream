@@ -17,15 +17,15 @@ import (
 
 type EngineState struct {
 	mu         sync.Mutex
-	rowHeap    core.RowHeap
+	rowHeap    core.CandleHeap
 }
 
 var engineState EngineState = EngineState{
-	rowHeap:    core.RowHeap{},
+	rowHeap:    core.CandleHeap{},
 }
 
 // TODO: Move this somewhere else at some point
-var latestBar map[string]*data.Row = make(map[string]*data.Row)
+var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
 
 // TODO: Keep track of multiple orders for same stock
 var pendingOrders map[string]*types.Order = make(map[string]*types.Order)
@@ -74,7 +74,7 @@ func ProcessOrders(port *core.Portfolio) {
 	}
 }
 
-func ProcessChannels(c <-chan data.Row, engine *EngineState) {
+func ProcessChannels(c <-chan data.Candle, engine *EngineState) {
 	// Both channels are unbuffered, which guarantees that we
 	// push data onto the rowHeap BEFORE we push a corresponding
 	// MarketEvent onto the eventQueue (which we want). If we ever
@@ -96,7 +96,7 @@ func main() {
 
 	tickers := []string{"AAPL", "GS", "MSFT", "NVDA", "META", "GOOG", "T", "JPM"}
 
-	marketPacketChannel := make(chan data.Row)
+	marketPacketChannel := make(chan data.Candle)
 
 	entryPrices := make(map[string]types.Price)
 	for _, symbol := range tickers {
@@ -144,7 +144,7 @@ func main() {
 
 		// Get latest timestamp (tick)
 		engineState.mu.Lock()
-		var head *data.Row = engineState.rowHeap.Peek()
+		var head *data.Candle = engineState.rowHeap.Peek()
 		engineState.mu.Unlock()
 		if head == nil {
 			// Heap is empty (readers haven't produced data yet, or we've
@@ -165,7 +165,7 @@ func main() {
 				break
 			}
 
-			var nextBar *data.Row = engineState.rowHeap.PopEntry()
+			var nextBar *data.Candle = engineState.rowHeap.PopEntry()
 			engineState.mu.Unlock()
 			latestBar[nextBar.Symbol] = nextBar
 
