@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"context"
 	"fmt"
 	"os"
@@ -27,18 +28,25 @@ var engineState EngineState = EngineState{
 // TODO: Move this somewhere else at some point
 var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
 
-var pendingOrders []*types.Order
+// Consider implementing a custom Doubly Linked List typed to an Order
+var pendingOrders *list.List = list.New()
 
 func ProcessOrders(port *core.Portfolio) {
-	remaining := pendingOrders[:0]
-	for _, order := range pendingOrders {
-		bar, succ := latestBar[order.Symbol]
-		if !succ {
-			remaining = append(remaining, order)
+ 	// Keep track of 'next' node in case of current Order deletion due to Fill
+	var next *list.Element 
+
+	for e := pendingOrders.Front(); e != nil; e = next {
+		next = e.Next()
+
+		order, ok := e.Value.(*types.Order)
+		if !ok {
 			continue
 		}
 
-		var filled bool = false
+		bar, succ := latestBar[order.Symbol]
+		if !succ {
+			continue
+		}
 
 		switch order.Type {
 		case types.Market:
@@ -55,7 +63,7 @@ func ProcessOrders(port *core.Portfolio) {
 					continue
 				}
 				port.UpdatePosition(&fill)
-				filled = true
+				pendingOrders.Remove(e)
 			}
 		case types.Limit:
 			{
@@ -72,17 +80,11 @@ func ProcessOrders(port *core.Portfolio) {
 						continue
 					}
 					port.UpdatePosition(&fill)
-					filled = true
-
+					pendingOrders.Remove(e)
 				}
 			}
-
-		}
-		if !filled {
-			remaining = append(remaining, order)
 		}
 	}
-	pendingOrders = remaining
 }
 
 func ProcessChannels(c <-chan data.Candle, engine *EngineState) {
@@ -196,7 +198,7 @@ func main() {
 
 		// TODO: Have CalculateSignals append to this directly somehow
 		for _, o := range newOrders {
-			pendingOrders = append(pendingOrders, &o)
+			pendingOrders.PushBack(&o)
 		}
 
 		nav := metrics.NetAssetValue(portfolio)
