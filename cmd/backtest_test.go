@@ -67,16 +67,17 @@ func wantFillPrice(t *testing.T, port *core.Portfolio, sym string, price float64
 	}
 }
 
-// wantPendingIDs asserts exactly which order IDs are still resting for a symbol.
-func wantPendingIDs(t *testing.T, sym string, ids ...uint64) {
+// wantPendingIDs asserts exactly which order IDs are still resting, in order.
+// pendingOrders is now a single flat slice rather than a per-symbol map.
+func wantPendingIDs(t *testing.T, ids ...uint64) {
 	t.Helper()
-	got := pendingOrders[sym]
+	got := pendingOrders
 	if len(got) != len(ids) {
-		t.Fatalf("%s has %d pending orders, want %d (ids %v)", sym, len(got), len(ids), ids)
+		t.Fatalf("have %d pending orders, want %d (ids %v)", len(got), len(ids), ids)
 	}
 	for i, o := range got {
 		if uint64(o.ID) != ids[i] {
-			t.Errorf("%s pending[%d].ID = %d, want %d", sym, i, o.ID, ids[i])
+			t.Errorf("pending[%d].ID = %d, want %d", i, o.ID, ids[i])
 		}
 	}
 }
@@ -97,122 +98,106 @@ func TestProcessOrders(t *testing.T) {
 			name: "market buy fills at the bar close",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 150)}
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {ord(1, "AAPL", types.Buy, types.Market, 100, 0)},
-				}
+				pendingOrders = []*types.Order{ord(1, "AAPL", types.Buy, types.Market, 100, 0)}
 				return &core.Portfolio{Positions: map[string]*core.Position{}}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 100)
 				wantFillPrice(t, port, "AAPL", 150)
-				wantPendingIDs(t, "AAPL") // consumed
+				wantPendingIDs(t) // consumed
 			},
 		},
 		{
 			name: "limit buy fills when close is at/below the limit",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 95)}
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {ord(1, "AAPL", types.Buy, types.Limit, 100, 100)},
-				}
+				pendingOrders = []*types.Order{ord(1, "AAPL", types.Buy, types.Limit, 100, 100)}
 				return &core.Portfolio{Positions: map[string]*core.Position{}}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 100)
 				wantFillPrice(t, port, "AAPL", 95)
-				wantPendingIDs(t, "AAPL")
+				wantPendingIDs(t)
 			},
 		},
 		{
 			name: "limit buy rests when close is above the limit",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 105)}
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {ord(1, "AAPL", types.Buy, types.Limit, 100, 100)},
-				}
+				pendingOrders = []*types.Order{ord(1, "AAPL", types.Buy, types.Limit, 100, 100)}
 				return &core.Portfolio{Positions: map[string]*core.Position{}}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				if _, ok := port.Positions["AAPL"]; ok {
 					t.Errorf("AAPL should not have a position; order should not have filled")
 				}
-				wantPendingIDs(t, "AAPL", 1) // still resting
+				wantPendingIDs(t, 1) // still resting
 			},
 		},
 		{
 			name: "limit sell fills when close is at/above the limit",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 115)}
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {ord(1, "AAPL", types.Sell, types.Limit, 100, 110)},
-				}
+				pendingOrders = []*types.Order{ord(1, "AAPL", types.Sell, types.Limit, 100, 110)}
 				return &core.Portfolio{Positions: map[string]*core.Position{
 					"AAPL": pos("AAPL", 100, 100),
 				}}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 0) // sold out
-				wantPendingIDs(t, "AAPL")
+				wantPendingIDs(t)
 			},
 		},
 		{
 			name: "limit sell rests when close is below the limit",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 105)}
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {ord(1, "AAPL", types.Sell, types.Limit, 100, 110)},
-				}
+				pendingOrders = []*types.Order{ord(1, "AAPL", types.Sell, types.Limit, 100, 110)}
 				return &core.Portfolio{Positions: map[string]*core.Position{
 					"AAPL": pos("AAPL", 100, 100),
 				}}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 100) // unchanged
-				wantPendingIDs(t, "AAPL", 1)
+				wantPendingIDs(t, 1)
 			},
 		},
 		{
 			name: "order with no market data yet stays resting",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{} // no bar for AAPL
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {ord(1, "AAPL", types.Buy, types.Market, 100, 0)},
-				}
+				pendingOrders = []*types.Order{ord(1, "AAPL", types.Buy, types.Market, 100, 0)}
 				return &core.Portfolio{Positions: map[string]*core.Position{}}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				if _, ok := port.Positions["AAPL"]; ok {
 					t.Errorf("AAPL should not have a position without market data")
 				}
-				wantPendingIDs(t, "AAPL", 1)
+				wantPendingIDs(t, 1)
 			},
 		},
 		{
 			name: "multiple fillable orders on one symbol both execute (scale-in)",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 95)}
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {
-						ord(1, "AAPL", types.Buy, types.Limit, 100, 100), // 95<=100 fills
-						ord(2, "AAPL", types.Buy, types.Limit, 100, 96),  // 95<=96  fills
-					},
+				pendingOrders = []*types.Order{
+					ord(1, "AAPL", types.Buy, types.Limit, 100, 100), // 95<=100 fills
+					ord(2, "AAPL", types.Buy, types.Limit, 100, 96),  // 95<=96  fills
 				}
 				return &core.Portfolio{Positions: map[string]*core.Position{}}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 200)
-				wantPendingIDs(t, "AAPL")
+				wantPendingIDs(t)
 			},
 		},
 		{
 			name: "fillable order behind a resting order removes the right one",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 95)}
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {
-						ord(1, "AAPL", types.Buy, types.Limit, 100, 50), // 95<=50 false -> should rest
-						ord(2, "AAPL", types.Buy, types.Market, 100, 0),  // fills
-					},
+				pendingOrders = []*types.Order{
+					ord(1, "AAPL", types.Buy, types.Limit, 100, 50), // 95<=50 false -> should rest
+					ord(2, "AAPL", types.Buy, types.Market, 100, 0),  // fills
 				}
 				return &core.Portfolio{Positions: map[string]*core.Position{}}
 			},
@@ -220,18 +205,16 @@ func TestProcessOrders(t *testing.T) {
 				wantPosition(t, port, "AAPL", 100)
 				// The market order (id 2) filled and must be removed; the
 				// unfillable limit order (id 1) must still be resting.
-				wantPendingIDs(t, "AAPL", 1)
+				wantPendingIDs(t, 1)
 			},
 		},
 		{
 			name: "filled order is consumed but a resting sibling survives",
 			setup: func() *core.Portfolio {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 95)}
-				pendingOrders = map[string][]*types.Order{
-					"AAPL": {
-						ord(1, "AAPL", types.Buy, types.Market, 100, 0), // fills
-						ord(2, "AAPL", types.Buy, types.Limit, 100, 50), // 95<=50 false -> should rest
-					},
+				pendingOrders = []*types.Order{
+					ord(1, "AAPL", types.Buy, types.Market, 100, 0), // fills
+					ord(2, "AAPL", types.Buy, types.Limit, 100, 50), // 95<=50 false -> should rest
 				}
 				return &core.Portfolio{Positions: map[string]*core.Position{}}
 			},
@@ -239,7 +222,7 @@ func TestProcessOrders(t *testing.T) {
 				wantPosition(t, port, "AAPL", 100)
 				// The market order filled and should be gone, but the
 				// unfillable limit order (id 2) must still be resting.
-				wantPendingIDs(t, "AAPL", 2)
+				wantPendingIDs(t, 2)
 			},
 		},
 	}

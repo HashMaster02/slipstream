@@ -27,22 +27,39 @@ var engineState EngineState = EngineState{
 // TODO: Move this somewhere else at some point
 var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
 
-var pendingOrders map[string][]*types.Order = make(map[string][]*types.Order)
+var pendingOrders []*types.Order
 
 func ProcessOrders(port *core.Portfolio) {
-	for symbol, orders := range pendingOrders {
-		bar, succ := latestBar[symbol]
+	remaining := pendingOrders[:0]
+	for _, order := range pendingOrders {
+		bar, succ := latestBar[order.Symbol]
 		if !succ {
+			remaining = append(remaining, order)
 			continue
 		}
-		remaining := orders[:0]
 
-		for _, order := range orders {
-			var filled bool = false
+		var filled bool = false
 
-			switch order.Type {
-			case types.Market:
-				{
+		switch order.Type {
+		case types.Market:
+			{
+				fill, err := types.NewFill(
+					order.Symbol,
+					order.Side,
+					order.Type,
+					order.Quantity,
+					bar.Close,
+				)
+				if err != nil {
+					fmt.Print(fmt.Errorf("%s", err))
+					continue
+				}
+				port.UpdatePosition(&fill)
+				filled = true
+			}
+		case types.Limit:
+			{
+				if ((order.Side == types.Buy) && (bar.Close <= order.Price)) || ((order.Side == types.Sell) && (bar.Close >= order.Price)) {
 					fill, err := types.NewFill(
 						order.Symbol,
 						order.Side,
@@ -56,38 +73,16 @@ func ProcessOrders(port *core.Portfolio) {
 					}
 					port.UpdatePosition(&fill)
 					filled = true
-				}
-			case types.Limit:
-				{
-					if ((order.Side == types.Buy) && (bar.Close <= order.Price)) || ((order.Side == types.Sell) && (bar.Close >= order.Price)) {
-						fill, err := types.NewFill(
-							order.Symbol,
-							order.Side,
-							order.Type,
-							order.Quantity,
-							bar.Close,
-						)
-						if err != nil {
-							fmt.Print(fmt.Errorf("%s", err))
-							continue
-						}
-						port.UpdatePosition(&fill)
-						filled = true
 
-					}
 				}
+			}
 
-			}
-			if !filled {
-				remaining = append(remaining, order)
-			}
 		}
-		if len(remaining) == 0 {
-			pendingOrders[symbol] = nil
-		} else {
-			pendingOrders[symbol] = remaining
+		if !filled {
+			remaining = append(remaining, order)
 		}
 	}
+	pendingOrders = remaining
 }
 
 func ProcessChannels(c <-chan data.Candle, engine *EngineState) {
@@ -201,7 +196,7 @@ func main() {
 
 		// TODO: Have CalculateSignals append to this directly somehow
 		for _, o := range newOrders {
-			pendingOrders[o.Symbol] = append(pendingOrders[o.Symbol], &o)
+			pendingOrders = append(pendingOrders, &o)
 		}
 
 		nav := metrics.NetAssetValue(portfolio)
