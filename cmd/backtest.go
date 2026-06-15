@@ -201,8 +201,7 @@ func main() {
 			pendingOrders.PushBack(&o)
 		}
 
-		nav := metrics.CurrentPositions(portfolio)
-		fmt.Printf("\033[2J\033[3J\033[H%s", nav)
+		fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, metrics.CurrentPositions(portfolio))
 
 		time.Sleep(1000 * time.Millisecond) // so we can watch the numbers on the terminal
 	}
