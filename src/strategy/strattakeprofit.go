@@ -1,9 +1,9 @@
 package strategy
 
 import (
-	"github.com/HashMaster02/slipstream/internal/core"
-	"github.com/HashMaster02/slipstream/internal/data"
-	"github.com/HashMaster02/slipstream/pkg/types"
+	"github.com/HashMaster02/slipstream/src/core"
+	"github.com/HashMaster02/slipstream/src/data"
+	"github.com/HashMaster02/slipstream/src/types"
 )
 
 type TakeProfit struct {
@@ -28,15 +28,15 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Candle, p
 
 	for _, symbol := range strat.Watchlist {
 		bar := (*marketData)[symbol]
-		position, succ := port.Positions[bar.Symbol]
+		position, succ := port.Positions[bar.Symbol] // TODO: Fix a race condition that occurs here occasionally
 
 		if !succ {
 			// Init a new position within the portfolio
 			position = &core.Position{
-				Symbol: symbol,
-				Qty: 0,
+				Symbol:            symbol,
+				Qty:               0,
 				CurrentSharePrice: types.PriceFromFloat(0),
-				CostBasis: types.PriceFromFloat(0),
+				CostBasis:         types.PriceFromFloat(0),
 			}
 			port.Positions[symbol] = position
 		}
@@ -46,12 +46,12 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Candle, p
 			position.CurrentSharePrice = bar.Close
 
 			order, err := types.NewOrder(bar.Symbol,
-							types.Buy,
-							types.Market,
-							types.GTC,
-							strat.PositionSize,
-							bar.Close,
-						)
+				types.Buy,
+				types.Market,
+				types.GTC,
+				strat.PositionSize,
+				bar.Close,
+			)
 			if err != nil {
 				return orders
 			}
@@ -65,12 +65,12 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Candle, p
 			}
 
 			order, err := types.NewOrder(bar.Symbol,
-							types.Sell,
-							types.Limit,
-							types.GTC,
-							strat.PositionSize,
-							exitPrice,
-						)
+				types.Sell,
+				types.Limit,
+				types.GTC,
+				strat.PositionSize,
+				exitPrice,
+			)
 			if err != nil {
 				return orders
 			}

@@ -3,7 +3,7 @@ package core
 import (
 	"container/heap"
 
-	"github.com/HashMaster02/slipstream/internal/data"
+	"github.com/HashMaster02/slipstream/src/data"
 )
 
 type CandleHeap []*data.Candle

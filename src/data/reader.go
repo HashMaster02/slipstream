@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HashMaster02/slipstream/pkg/types"
+	"github.com/HashMaster02/slipstream/src/types"
 )
 
 type Candle struct {
@@ -23,9 +23,9 @@ type Candle struct {
 }
 
 type Reader struct {
-	file    *os.File
-	symbol  string
-	scanner *bufio.Scanner
+	file       *os.File
+	symbol     string
+	scanner    *bufio.Scanner
 	currCandle uint64
 }
 

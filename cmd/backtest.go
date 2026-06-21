@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/HashMaster02/slipstream/internal/core"
-	"github.com/HashMaster02/slipstream/internal/data"
-	"github.com/HashMaster02/slipstream/internal/metrics"
-	"github.com/HashMaster02/slipstream/pkg/strategy"
-	"github.com/HashMaster02/slipstream/pkg/types"
+	"github.com/HashMaster02/slipstream/src/core"
+	"github.com/HashMaster02/slipstream/src/data"
+	"github.com/HashMaster02/slipstream/src/metrics"
+	"github.com/HashMaster02/slipstream/src/strategy"
+	"github.com/HashMaster02/slipstream/src/types"
 )
 
 type EngineState struct {
@@ -32,8 +32,8 @@ var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
 var pendingOrders *list.List = list.New()
 
 func ProcessOrders(port *core.Portfolio) {
- 	// Keep track of 'next' node in case of current Order deletion due to Fill
-	var next *list.Element 
+	// Keep track of 'next' node in case of current Order deletion due to Fill
+	var next *list.Element
 
 	for e := pendingOrders.Front(); e != nil; e = next {
 		next = e.Next()
@@ -203,6 +203,6 @@ func main() {
 
 		fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, metrics.CurrentPositions(portfolio))
 
-		time.Sleep(1000 * time.Millisecond) // so we can watch the numbers on the terminal
+		// time.Sleep(1000 * time.Millisecond) // so we can watch the numbers on the terminal
 	}
 }
