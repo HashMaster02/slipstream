@@ -117,35 +117,26 @@ func main() {
 	defer input_file.Close()
 
 	scanner := bufio.NewScanner(input_file)
-	if !scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			fmt.Println(fmt.Errorf("error while reading file: %w", err))
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-	CURRCANDLE++
 
 
 	for {
-		candle1, candle2, err := twoCandleWindow(scanner, CURRCANDLE)
-		if err == io.EOF {
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				fmt.Println(fmt.Errorf("error while reading file: %w", err))
+				break
+			}
 			break
 		}
-		if err != nil {
-			fmt.Println(fmt.Errorf("ERROR while reading candles: %w", err))
-			break
-		}
+		CURRCANDLE++
+		candle, err := rowToCandle(scanner.Text(), CURRCANDLE)
 
-		var quote generate.Quote = generate.CorwinSchultz(candle1, candle2)
+		var quote generate.Quote = generate.HighLowAsAskBid(candle)
 
 		_, err = writer.WriteString(fmt.Sprintf("%s, %f, %f, %f\n", quote.Timestamp.Format(TIME_LAYOUT), quote.Bid, quote.Ask, quote.Last))
 		if err != nil {
 			fmt.Println(fmt.Errorf("ERROR while writing quote: %w", err))
 			continue
 		}
-
-		CURRCANDLE++
 	}
 	
 }
