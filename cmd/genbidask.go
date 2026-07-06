@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -63,8 +64,31 @@ func rowToCandle(line string, CURRCANDLE uint64) (generate.Candle, error) {
 
 }
 
+func twoCandleWindow(scanner *bufio.Scanner, CURRCANDLE uint64) (generate.Candle, generate.Candle, error){
+	candle1, err := rowToCandle(scanner.Text(), CURRCANDLE)
+	if err != nil {
+		return generate.Candle{}, generate.Candle{}, fmt.Errorf("ERROR while reading single candle: %w", err)
+	}
+
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return candle1, generate.Candle{}, fmt.Errorf("error while reading file: %w", err)
+		}
+		// Clean end of file: candle1 has no partner, so no quote is produced.
+		return candle1, generate.Candle{}, io.EOF
+	}
+
+	candle2, err := rowToCandle(scanner.Text(), CURRCANDLE+1)
+	if err != nil {
+		return candle1, generate.Candle{}, fmt.Errorf("ERROR while reading single candle: %w", err)
+	}
+
+	return candle1, candle2, nil
+}
+
 func main() {
 
+	const TIME_LAYOUT string = "2006-01-02 15:04:05"
 	const BASE_PATH = "./_data/firstrate"
 	const TICKER = "DTSQR"
 	const OHLC_DATA_PATH = BASE_PATH + "/stock_update_month_1min_adjsplit/" + TICKER + "_month_1min_adjsplit.txt"
@@ -104,37 +128,24 @@ func main() {
 
 
 	for {
-		candle1, err := rowToCandle(scanner.Text(), CURRCANDLE)
+		candle1, candle2, err := twoCandleWindow(scanner, CURRCANDLE)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			fmt.Println(fmt.Errorf("ERROR while reading single candle: %w", err))
+			fmt.Println(fmt.Errorf("ERROR while reading candles: %w", err))
 			break
 		}
-		fmt.Println(candle1)
-
-		if !scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				fmt.Println(fmt.Errorf("error while reading file: %w", err))
-				break
-			}
-			break
-		}
-		CURRCANDLE++
-		candle2, err := rowToCandle(scanner.Text(), CURRCANDLE)
-		if err != nil {
-			fmt.Println(fmt.Errorf("ERROR while reading single candle2: %w", err))
-			break
-		}
-		fmt.Println(candle2)
 
 		var quote generate.Quote = generate.CorwinSchultz(candle1, candle2)
-		fmt.Println(quote)
 
-		_, err = writer.WriteString(fmt.Sprintf("%f, %f, %f\n", quote.Bid, quote.Ask, quote.Last))
+		_, err = writer.WriteString(fmt.Sprintf("%s, %f, %f, %f\n", quote.Timestamp.Format(TIME_LAYOUT), quote.Bid, quote.Ask, quote.Last))
 		if err != nil {
-			fmt.Println(fmt.Errorf("ERROR while reading single candle2: %w", err))
+			fmt.Println(fmt.Errorf("ERROR while writing quote: %w", err))
 			continue
 		}
 
+		CURRCANDLE++
 	}
 	
 }
