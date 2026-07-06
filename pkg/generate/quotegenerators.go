@@ -15,9 +15,10 @@ type Candle struct {
 }
 
 type Quote struct {
-	Bid  float64
-	Ask  float64
-	Last float64
+	Timestamp time.Time
+	Bid  	  float64
+	Ask  	  float64
+	Last 	  float64
 }
 
 func HighLowAsAskBid(dayT Candle) Quote {
@@ -26,7 +27,7 @@ func HighLowAsAskBid(dayT Candle) Quote {
 	*/
 	var ask = dayT.High
 	var bid = dayT.Low
-	return Quote{Bid: bid, Ask: ask, Last: dayT.Close}
+	return Quote{Timestamp: dayT.Timestamp, Bid: bid, Ask: ask, Last: dayT.Close}
 }
 
 func CorwinSchultz(dayT1 Candle, dayT2 Candle) Quote {
@@ -59,6 +60,6 @@ func CorwinSchultz(dayT1 Candle, dayT2 Candle) Quote {
 	var ask = dayT2.Close * (1 + (S/2))
 	var bid = dayT2.Close * (1 - (S/2))
 
-	return Quote{Bid: bid, Ask: ask, Last: dayT2.Close}
+	return Quote{Timestamp: dayT2.Timestamp, Bid: bid, Ask: ask, Last: dayT2.Close}
 
 }
