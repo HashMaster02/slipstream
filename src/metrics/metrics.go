@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/HashMaster02/slipstream/internal/core"
-	"github.com/HashMaster02/slipstream/pkg/types"
+	"github.com/HashMaster02/slipstream/src/core"
+	"github.com/HashMaster02/slipstream/src/types"
 )
 
 func CurrentPositions(portfolio *core.Portfolio) string {

@@ -4,9 +4,9 @@ import (
 	"container/list"
 	"testing"
 
-	"github.com/HashMaster02/slipstream/internal/core"
-	"github.com/HashMaster02/slipstream/internal/data"
-	"github.com/HashMaster02/slipstream/pkg/types"
+	"github.com/HashMaster02/slipstream/src/core"
+	"github.com/HashMaster02/slipstream/src/data"
+	"github.com/HashMaster02/slipstream/src/types"
 )
 
 // ---- tiny builders to keep the table readable -----------------------------
@@ -213,7 +213,7 @@ func TestProcessOrders(t *testing.T) {
 				latestBar = map[string]*data.Candle{"AAPL": bar("AAPL", 95)}
 				setPending(
 					ord(1, "AAPL", types.Buy, types.Limit, 100, 50), // 95<=50 false -> should rest
-					ord(2, "AAPL", types.Buy, types.Market, 100, 0),  // fills
+					ord(2, "AAPL", types.Buy, types.Market, 100, 0), // fills
 				)
 				return &core.Portfolio{Positions: map[string]*core.Position{}}
 			},
