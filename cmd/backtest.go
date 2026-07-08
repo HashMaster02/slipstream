@@ -18,15 +18,15 @@ import (
 
 type EngineState struct {
 	mu      sync.Mutex
-	rowHeap core.CandleHeap
+	rowHeap core.QuoteHeap
 }
 
 var engineState EngineState = EngineState{
-	rowHeap: core.CandleHeap{},
+	rowHeap: core.QuoteHeap{},
 }
 
 // TODO: Move this somewhere else at some point
-var latestBar map[string]*data.Candle = make(map[string]*data.Candle)
+var latestQuote map[string]*data.Quote = make(map[string]*data.Quote)
 
 // Consider implementing a custom Doubly Linked List typed to an Order
 var pendingOrders *list.List = list.New()
@@ -43,37 +43,68 @@ func ProcessOrders(port *core.Portfolio) {
 			continue
 		}
 
-		bar, succ := latestBar[order.Symbol]
+		bar, succ := latestQuote[order.Symbol]
 		if !succ {
 			continue
 		}
 
+		// TODO: This switch statement duplicates a lot of logic. Simplify it.
 		switch order.Type {
 		case types.Market:
 			{
-				fill, err := types.NewFill(
-					order.Symbol,
-					order.Side,
-					order.Type,
-					order.Quantity,
-					bar.Close,
-				)
-				if err != nil {
-					fmt.Print(fmt.Errorf("%s", err))
-					continue
-				}
-				port.UpdatePosition(&fill)
-				pendingOrders.Remove(e)
-			}
-		case types.Limit:
-			{
-				if ((order.Side == types.Buy) && (bar.Close <= order.Price)) || ((order.Side == types.Sell) && (bar.Close >= order.Price)) {
+				if (order.Side == types.Buy) {
 					fill, err := types.NewFill(
 						order.Symbol,
 						order.Side,
 						order.Type,
 						order.Quantity,
-						bar.Close,
+						bar.Ask,
+					)
+					if err != nil {
+						fmt.Print(fmt.Errorf("%s", err))
+						continue
+					}
+					port.UpdatePosition(&fill)
+					pendingOrders.Remove(e)
+				} else if (order.Side == types.Sell) {  // being explicit here on purpose
+					fill, err := types.NewFill(
+						order.Symbol,
+						order.Side,
+						order.Type,
+						order.Quantity,
+						bar.Bid,
+					)
+					if err != nil {
+						fmt.Print(fmt.Errorf("%s", err))
+						continue
+					}
+					port.UpdatePosition(&fill)
+					pendingOrders.Remove(e)
+				}
+			}
+		case types.Limit:
+			{
+				if ((order.Side == types.Buy) && (bar.Ask <= order.Price)) {
+					fill, err := types.NewFill(
+						order.Symbol,
+						order.Side,
+						order.Type,
+						order.Quantity,
+						bar.Ask,
+					)
+					if err != nil {
+						fmt.Print(fmt.Errorf("%s", err))
+						continue
+					}
+					port.UpdatePosition(&fill)
+					pendingOrders.Remove(e)
+				} else if ((order.Side == types.Sell) && (bar.Bid >= order.Price)) {
+					fill, err := types.NewFill(
+						order.Symbol,
+						order.Side,
+						order.Type,
+						order.Quantity,
+						bar.Bid,
 					)
 					if err != nil {
 						fmt.Print(fmt.Errorf("%s", err))
@@ -87,7 +118,7 @@ func ProcessOrders(port *core.Portfolio) {
 	}
 }
 
-func ProcessChannels(c <-chan data.Candle, engine *EngineState) {
+func ProcessChannels(c <-chan data.Quote, engine *EngineState) {
 	// Both channels are unbuffered, which guarantees that we
 	// push data onto the rowHeap BEFORE we push a corresponding
 	// MarketEvent onto the eventQueue (which we want). If we ever
@@ -107,9 +138,11 @@ func ProcessChannels(c <-chan data.Candle, engine *EngineState) {
 
 func main() {
 
-	tickers := []string{"AAPL", "GS", "MSFT", "NVDA", "META", "GOOG", "T", "JPM"}
+	const BASE_PATH = "./_data/firstrate"
 
-	marketPacketChannel := make(chan data.Candle)
+	tickers := []string{"AAPL"}
+
+	marketPacketChannel := make(chan data.Quote)
 
 	entryPrices := make(map[string]types.Price)
 	for _, symbol := range tickers {
@@ -118,9 +151,10 @@ func main() {
 
 	go ProcessChannels(marketPacketChannel, &engineState)
 
+	// TODO: Only if all files fail to open should the program quit
 	for _, ticker := range tickers {
-		filepath := fmt.Sprintf("./_data/firstrate/stock_update_month_1min_adjsplit/%s_month_1min_adjsplit.txt", ticker)
-		reader, err := data.NewReader(filepath, ticker)
+		var QUOTE_DATA_PATH = BASE_PATH + "/stock_update_month_1min_quote/" + ticker + "_month_1min_quote.txt"
+		reader, err := data.NewReader(QUOTE_DATA_PATH, ticker)
 		if err != nil {
 			fmt.Print(fmt.Errorf("%s", err))
 			os.Exit(-1)
@@ -157,7 +191,7 @@ func main() {
 
 		// Get latest timestamp (tick)
 		engineState.mu.Lock()
-		var head *data.Candle = engineState.rowHeap.Peek()
+		var head *data.Quote = engineState.rowHeap.Peek()
 		engineState.mu.Unlock()
 		if head == nil {
 			// Heap is empty (readers haven't produced data yet, or we've
@@ -178,9 +212,9 @@ func main() {
 				break
 			}
 
-			var nextBar *data.Candle = engineState.rowHeap.PopEntry()
+			var nextBar *data.Quote = engineState.rowHeap.PopEntry()
 			engineState.mu.Unlock()
-			latestBar[nextBar.Symbol] = nextBar
+			latestQuote[nextBar.Symbol] = nextBar
 
 			// Update latest market prices for portfolio
 			// ! Edge Case: What if our portfolio has positions for securities we are not currently processing?
@@ -192,7 +226,7 @@ func main() {
 		// Calculate signals from strategies
 		// TODO: run in go routine for each active strategy ==========
 		engineState.mu.Lock()
-		newOrders := strategy.CalculateSignals(&latestBar, portfolio)
+		newOrders := strategy.CalculateSignals(&latestQuote, portfolio)
 		engineState.mu.Unlock()
 		// TODO: =====================================================
 
@@ -203,6 +237,6 @@ func main() {
 
 		fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, metrics.CurrentPositions(portfolio))
 
-		time.Sleep(1000 * time.Millisecond) // so we can watch the numbers on the terminal
+		time.Sleep(100 * time.Millisecond) // so we can watch the numbers on the terminal
 	}
 }
