@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sync"
@@ -24,6 +25,25 @@ type EngineState struct {
 var engineState EngineState = EngineState{
 	rowHeap: core.QuoteHeap{},
 }
+
+// TODO: Make these settings configurable through an external config file
+// Simulated Network Delay parameters, measured in ticks (bars) rather than
+// wall-clock time. An order emitted by a strategy on tick T is not added to
+// the `pendingOrders` until tick (T + delay)
+const (
+	baseOrderDelayTicks   uint64 = 2 // each order waits at least X bars
+	orderDelayJitterTicks uint64 = 3 // add a random 0..X-1 bars on top of the base
+)
+var delayRNG *rand.Rand = rand.New(rand.NewSource(1))
+
+// Monotonic count of distinct market ticks (bars) processed by the engine
+var tickCount uint64
+
+type delayedOrder struct {
+	order          types.Order
+	activationTick uint64
+}
+var delayedOrders []delayedOrder
 
 // TODO: Move this somewhere else at some point
 var latestQuote map[string]*data.Quote = make(map[string]*data.Quote)
@@ -136,6 +156,30 @@ func ProcessChannels(c <-chan data.Quote, engine *EngineState) {
 	}
 }
 
+func SubmitOrder(order types.Order) {
+	delay := baseOrderDelayTicks
+	if orderDelayJitterTicks > 0 {
+		delay += uint64(delayRNG.Int63n(int64(orderDelayJitterTicks)))
+	}
+	delayedOrders = append(delayedOrders, delayedOrder{
+		order:          order,
+		activationTick: tickCount + delay,
+	})
+}
+
+func ReleaseDelayedOrders() {
+	remaining := delayedOrders[:0]
+	for _, d := range delayedOrders {
+		if d.activationTick > tickCount {
+			remaining = append(remaining, d)
+			continue
+		}
+		o := d.order
+		pendingOrders.PushBack(&o)
+	}
+	delayedOrders = remaining
+}
+
 func main() {
 
 	const BASE_PATH = "./_data/firstrate"
@@ -206,6 +250,7 @@ func main() {
 		}
 
 		var currentTick time.Time = head.Timestamp
+		tickCount++
 
 		// The engine updates all bars for securities
 		for {
@@ -225,6 +270,7 @@ func main() {
 			// ! Edge Case: What if our portfolio has positions for securities we are not currently processing?
 			portfolio.UpdatePrice(*nextBar)
 		}
+		ReleaseDelayedOrders()
 
 		ProcessOrders(portfolio)
 
@@ -237,7 +283,7 @@ func main() {
 
 		// TODO: Have CalculateSignals append to this directly somehow
 		for _, o := range newOrders {
-			pendingOrders.PushBack(&o)
+			SubmitOrder(o)
 		}
 
 		fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, metrics.CurrentPositions(portfolio))
