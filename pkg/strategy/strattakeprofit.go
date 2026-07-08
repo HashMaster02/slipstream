@@ -22,7 +22,7 @@ func NewTakeProfit(symbols []string, takeProfit types.Price, positionSize int64)
 	return TakeProfit{Watchlist: symbols, PositionSize: positionSize, EntryPrice: entryPrices, TakeProfit: takeProfit}
 }
 
-func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Candle, port *core.Portfolio) []types.Order {
+func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Quote, port *core.Portfolio) []types.Order {
 
 	orders := make([]types.Order, len(strat.Watchlist))
 
@@ -43,14 +43,14 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Candle, p
 
 		if position.Qty == 0 {
 			// Buy signal
-			position.CurrentSharePrice = bar.Close
+			position.CurrentSharePrice = bar.Last
 
 			order, err := types.NewOrder(bar.Symbol,
 							types.Buy,
 							types.Market,
 							types.GTC,
 							strat.PositionSize,
-							bar.Close,
+							bar.Last,
 						)
 			if err != nil {
 				return orders
@@ -60,7 +60,7 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Candle, p
 		} else {
 			// Sell signal
 			exitPrice := position.CostBasis + strat.TakeProfit
-			if bar.Close < exitPrice {
+			if bar.Last < exitPrice {
 				continue
 			}
 

@@ -7,5 +7,5 @@ import (
 )
 
 type Strategy interface {
-	CalculateSignals(marketData *map[string]*data.Candle, port *core.Portfolio) []types.Order
+	CalculateSignals(marketData *map[string]*data.Quote, port *core.Portfolio) []types.Order
 }
