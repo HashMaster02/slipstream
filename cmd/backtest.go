@@ -152,15 +152,21 @@ func main() {
 	go ProcessChannels(marketPacketChannel, &engineState)
 
 	// TODO: Only if all files fail to open should the program quit
+	READER_COUNT := 0
 	for _, ticker := range tickers {
 		var QUOTE_DATA_PATH = BASE_PATH + "/stock_update_month_1min_quote/" + ticker + "_month_1min_quote.txt"
 		reader, err := data.NewReader(QUOTE_DATA_PATH, ticker)
 		if err != nil {
 			fmt.Print(fmt.Errorf("%s", err))
-			os.Exit(-1)
+			continue
 		}
+		READER_COUNT++
 
 		go data.ReadData(reader, marketPacketChannel)
+	}
+	if READER_COUNT == 0 {
+		fmt.Println("All data files failed to open. Quitting program.")
+		os.Exit(0)
 	}
 
 	// =========== Main engine loop ===============
