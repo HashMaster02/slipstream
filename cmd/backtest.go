@@ -151,7 +151,6 @@ func main() {
 
 	go ProcessChannels(marketPacketChannel, &engineState)
 
-	// TODO: Only if all files fail to open should the program quit
 	READER_COUNT := 0
 	for _, ticker := range tickers {
 		var QUOTE_DATA_PATH = BASE_PATH + "/stock_update_month_1min_quote/" + ticker + "_month_1min_quote.txt"
