@@ -5,21 +5,18 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/HashMaster02/slipstream/pkg/types"
 )
 
-type Candle struct {
+type Quote struct {
 	Timestamp time.Time
 	Symbol    string
-	Open      types.Price
-	High      types.Price
-	Low       types.Price
-	Close     types.Price
-	Volume    int64
+	Bid 	  types.Price
+	Ask       types.Price
+	Last      types.Price
 }
 
 type Reader struct {
@@ -44,16 +41,16 @@ func (r *Reader) CloseReader() {
 	r.file.Close()
 }
 
-func (r *Reader) Next() (Candle, error) {
+func (r *Reader) Next() (Quote, error) {
 
 	const TIME_LAYOUT string = "2006-01-02 15:04:05"
-	const ELEMENTS_PER_ROW = 6
+	const ELEMENTS_PER_ROW = 4
 
 	if !r.scanner.Scan() {
 		if err := r.scanner.Err(); err != nil {
-			return Candle{}, fmt.Errorf("scan: %w", err)
+			return Quote{}, fmt.Errorf("scan: %w", err)
 		}
-		return Candle{}, io.EOF
+		return Quote{}, io.EOF
 	}
 
 	r.currCandle++
@@ -61,53 +58,41 @@ func (r *Reader) Next() (Candle, error) {
 	data := strings.Split(line, ",")
 
 	if len(data) != ELEMENTS_PER_ROW {
-		return Candle{}, fmt.Errorf("Error on row %d. The row does not have enough items. Expected %d, got %d.", r.currCandle, ELEMENTS_PER_ROW, len(data))
+		return Quote{}, fmt.Errorf("Error on row %d. The row does not have enough items. Expected %d, got %d.", r.currCandle, ELEMENTS_PER_ROW, len(data))
 	}
 
-	time, err := time.Parse(TIME_LAYOUT, data[0])
+	time, err := time.Parse(TIME_LAYOUT, strings.TrimSpace(data[0]))
 	if err != nil {
-		return Candle{}, fmt.Errorf("error parsing time string %s: %w", data[0], err)
+		return Quote{}, fmt.Errorf("error parsing time string %s: %w", data[0], err)
 	}
 
-	open, err := types.ParsePrice(data[1])
+	bid, err := types.ParsePrice(strings.TrimSpace(data[1]))
 	if err != nil {
-		return Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[1], err)
+		return Quote{}, fmt.Errorf("error parsing numeric value %s: %w", data[1], err)
 	}
 
-	high, err := types.ParsePrice(data[2])
+	ask, err := types.ParsePrice(strings.TrimSpace(data[2]))
 	if err != nil {
-		return Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[2], err)
+		return Quote{}, fmt.Errorf("error parsing numeric value %s: %w", data[2], err)
 	}
 
-	low, err := types.ParsePrice(data[3])
+	last, err := types.ParsePrice(strings.TrimSpace(data[3]))
 	if err != nil {
-		return Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[3], err)
+		return Quote{}, fmt.Errorf("error parsing numeric value %s: %w", data[3], err)
 	}
 
-	close, err := types.ParsePrice(data[4])
-	if err != nil {
-		return Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[4], err)
-	}
-
-	volume, err := strconv.ParseInt(data[5], 10, 64)
-	if err != nil {
-		return Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[5], err)
-	}
-
-	row := Candle{
+	row := Quote{
 		Timestamp: time,
 		Symbol:    r.symbol,
-		Open:      open,
-		High:      high,
-		Low:       low,
-		Close:     close,
-		Volume:    volume,
+		Bid:       bid,
+		Ask:       ask,
+		Last:      last,
 	}
 
 	return row, nil
 }
 
-func ReadData(reader *Reader, channel chan<- Candle) {
+func ReadData(reader *Reader, channel chan<- Quote) {
 	for {
 		data, err := reader.Next()
 		if err == io.EOF {

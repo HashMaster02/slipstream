@@ -31,14 +31,14 @@ func (p *Portfolio) UpdatePosition(fill *types.Fill) {
 	p.updateNAV()
 }
 
-func (p *Portfolio) UpdatePrice(bar data.Candle) {
+func (p *Portfolio) UpdatePrice(bar data.Quote) {
 
 	position, ok := p.Positions[bar.Symbol]
 	if !ok {
 		return
 	}
 
-	position.CurrentSharePrice = bar.Close
+	position.CurrentSharePrice = bar.Last
 	p.updateNAV()
 
 }
