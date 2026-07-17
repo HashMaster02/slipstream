@@ -24,7 +24,7 @@ func NewTakeProfit(symbols []string, takeProfit types.Price, positionSize int64)
 
 func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Quote, port *core.Portfolio) []types.Order {
 
-	orders := make([]types.Order, len(strat.Watchlist))
+	orders := make([]types.Order, 0, len(strat.Watchlist))
 
 	for _, symbol := range strat.Watchlist {
 		bar := (*marketData)[symbol]
