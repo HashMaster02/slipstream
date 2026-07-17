@@ -13,7 +13,7 @@ func CurrentPositions(portfolio *core.Portfolio) string {
 
 	for ticker, pos := range portfolio.Positions {
 		if pos.Qty != 0 {
-			fmt.Fprintf(&perfLog, "\x1b[1;36m%5s::\x1b[0m Shares: %d, Cost Basis: $%s, Last: %s\n", ticker, pos.Qty, pos.CurrentSharePrice.String(), pos.CurrentSharePrice.String())
+			fmt.Fprintf(&perfLog, "\x1b[1;36m%5s::\x1b[0m Shares: %d, Cost Basis: $%s, Last: %s\n", ticker, pos.Qty, pos.CurrentSharePrice.String(), pos.CostBasis)
 		}
 	}
 
