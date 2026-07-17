@@ -1,0 +1,18 @@
+{
+  "latency": {
+    "baseOrderDelayTicks": 2,
+    "orderDelayJitterTicks": 3,
+    "rngSeed": 1
+  },
+  "engine": {
+    "renderThrottleMs": 100,
+    "idlePollMs": 1
+  },
+  "data": {
+    "tickers": ["AAPL"],
+    "basePath": "./_data/firstrate",
+    "quoteFilePattern": "stock_update_month_1min_quote/{ticker}_month_1min_quote.txt",
+    "metricsOutputPath": "./_output/metrics.txt",
+    "metricsAppend": true
+  }
+}
