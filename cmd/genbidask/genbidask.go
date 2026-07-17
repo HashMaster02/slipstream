@@ -28,17 +28,17 @@ func rowToCandle(line string, CURRCANDLE uint64) (generate.Candle, error) {
 	}
 	open, err := strconv.ParseFloat(data[1], 64)
 	if err != nil {
-		return generate.Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[1], 64, err)
+		return generate.Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[1], err)
 	}
 
 	high, err := strconv.ParseFloat(data[2], 64)
 	if err != nil {
-		return generate.Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[2], 64, err)
+		return generate.Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[2], err)
 	}
 
 	low, err := strconv.ParseFloat(data[3], 64)
 	if err != nil {
-		return generate.Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[3], 64, err)
+		return generate.Candle{}, fmt.Errorf("error parsing numeric value %s: %w", data[3], err)
 	}
 
 	close, err := strconv.ParseFloat(data[4], 64)
