@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HashMaster02/slipstream/src/config"
 	"github.com/HashMaster02/slipstream/src/core"
 	"github.com/HashMaster02/slipstream/src/data"
 	"github.com/HashMaster02/slipstream/src/metrics"
@@ -30,11 +31,11 @@ var engineState EngineState = EngineState{
 // Simulated Network Delay parameters, measured in ticks (bars) rather than
 // wall-clock time. An order emitted by a strategy on tick T is not added to
 // the `pendingOrders` until tick (T + delay)
-const (
-	baseOrderDelayTicks   uint64 = 2 // each order waits at least X bars
-	orderDelayJitterTicks uint64 = 3 // add a random 0..X-1 bars on top of the base
+var (
+	baseOrderDelayTicks   uint64 // each order waits at least X bars
+	orderDelayJitterTicks uint64 // add a random 0..X-1 bars on top of the base
 )
-var delayRNG *rand.Rand = rand.New(rand.NewSource(1))
+var delayRNG *rand.Rand
 
 // Monotonic count of distinct market ticks (bars) processed by the engine
 var tickCount uint64
@@ -182,9 +183,17 @@ func ReleaseDelayedOrders() {
 
 func main() {
 
-	const BASE_PATH = "./_data/firstrate"
+	cfg, err := config.Load(config.DefaultPath)
+	if err != nil {
+		fmt.Println(fmt.Errorf("%w", err))
+		os.Exit(1)
+	}
 
-	tickers := []string{"AAPL"}
+	baseOrderDelayTicks = cfg.Latency.BaseOrderDelayTicks
+	orderDelayJitterTicks = cfg.Latency.OrderDelayJitterTicks
+	delayRNG = rand.New(rand.NewSource(cfg.Latency.RNGSeed))
+
+	tickers := cfg.Data.Tickers
 
 	marketPacketChannel := make(chan data.Quote)
 
@@ -197,7 +206,7 @@ func main() {
 
 	READER_COUNT := 0
 	for _, ticker := range tickers {
-		var QUOTE_DATA_PATH = BASE_PATH + "/stock_update_month_1min_quote/" + ticker + "_month_1min_quote.txt"
+		var QUOTE_DATA_PATH = cfg.QuotePath(ticker)
 		reader, err := data.NewReader(QUOTE_DATA_PATH, ticker)
 		if err != nil {
 			fmt.Print(fmt.Errorf("%s", err))
@@ -213,7 +222,13 @@ func main() {
 	}
 
 	// =========== Main engine loop ===============
-	METRIC_OUTPUT_FILE, err := os.OpenFile("./_output/metrics.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	metricFlags := os.O_WRONLY | os.O_CREATE
+	if cfg.Data.MetricsAppend {
+		metricFlags |= os.O_APPEND
+	} else {
+		metricFlags |= os.O_TRUNC
+	}
+	METRIC_OUTPUT_FILE, err := os.OpenFile(cfg.Data.MetricsOutputPath, metricFlags, 0644)
 	if err != nil {
 		fmt.Print(fmt.Errorf("%s", err))
 	}
@@ -245,7 +260,7 @@ func main() {
 		if head == nil {
 			// Heap is empty (readers haven't produced data yet, or we've
 			// drained everything). Yield and retry rather than busy-spinning.
-			time.Sleep(time.Millisecond)
+			time.Sleep(cfg.IdlePoll())
 			continue
 		}
 
@@ -288,6 +303,6 @@ func main() {
 
 		fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, metrics.CurrentPositions(portfolio))
 
-		time.Sleep(100 * time.Millisecond) // so we can watch the numbers on the terminal
+		time.Sleep(cfg.RenderThrottle()) // so we can watch the numbers on the terminal
 	}
 }
