@@ -139,10 +139,6 @@ func ProcessOrders(port *core.Portfolio) {
 }
 
 func ProcessChannels(c <-chan data.Quote, engine *EngineState) {
-	// Both channels are unbuffered, which guarantees that we
-	// push data onto the rowHeap BEFORE we push a corresponding
-	// MarketEvent onto the eventQueue (which we want). If we ever
-	// buffer either of the channels, we will break this inherent sequence.
 	for c != nil {
 		row, ok := <-c
 		if !ok {
@@ -217,7 +213,7 @@ func main() {
 	}
 	if READER_COUNT == 0 {
 		fmt.Println("All data files failed to open. Quitting program.")
-		os.Exit(0)
+		os.Exit(-1)
 	}
 
 	// =========== Main engine loop ===============
