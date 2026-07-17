@@ -27,7 +27,6 @@ var engineState EngineState = EngineState{
 	rowHeap: core.QuoteHeap{},
 }
 
-// TODO: Make these settings configurable through an external config file
 // Simulated Network Delay parameters, measured in ticks (bars) rather than
 // wall-clock time. An order emitted by a strategy on tick T is not added to
 // the `pendingOrders` until tick (T + delay)
