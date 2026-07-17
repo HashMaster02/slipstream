@@ -129,7 +129,10 @@ func main() {
 		}
 		CURRCANDLE++
 		candle, err := rowToCandle(scanner.Text(), CURRCANDLE)
-
+		if err != nil {
+			fmt.Println(fmt.Errorf("ERROR while generating candle: %w", err))
+			break
+		}
 		var quote generate.Quote = generate.HighLowAsAskBid(candle)
 
 		_, err = writer.WriteString(fmt.Sprintf("%s, %f, %f, %f\n", quote.Timestamp.Format(TIME_LAYOUT), quote.Bid, quote.Ask, quote.Last))
