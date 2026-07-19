@@ -92,18 +92,19 @@ func (r *Reader) Next() (Quote, error) {
 	return row, nil
 }
 
-func ReadData(reader *Reader, channel chan<- Quote) {
+func LoadAll(reader *Reader) ([]Quote, error) {
+	defer reader.CloseReader()
+
+	var quotes []Quote
 	for {
 		data, err := reader.Next()
 		if err == io.EOF {
-			reader.CloseReader()
-			break
+			return quotes, nil
 		}
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			break
+			return quotes, err
 		}
 
-		channel <- data
+		quotes = append(quotes, data)
 	}
 }
