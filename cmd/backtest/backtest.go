@@ -192,11 +192,6 @@ func main() {
 
 	marketPacketChannel := make(chan data.Quote)
 
-	entryPrices := make(map[string]types.Price)
-	for _, symbol := range tickers {
-		entryPrices[symbol] = 0
-	}
-
 	go ProcessChannels(marketPacketChannel, &engineState)
 
 	READER_COUNT := 0
