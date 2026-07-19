@@ -13,7 +13,10 @@ func (h QuoteHeap) Len() int {
 }
 
 func (h QuoteHeap) Less(i, j int) bool {
-	return h[i].Timestamp.Before(h[j].Timestamp)
+	if !h[i].Timestamp.Equal(h[j].Timestamp) {
+		return h[i].Timestamp.Before(h[j].Timestamp)
+	}
+	return h[i].Symbol < h[j].Symbol
 }
 
 func (h QuoteHeap) Swap(i, j int) {
