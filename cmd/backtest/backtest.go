@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"sync"
 	"time"
 
 	"github.com/HashMaster02/slipstream/src/config"
@@ -19,7 +18,6 @@ import (
 )
 
 type EngineState struct {
-	mu      sync.Mutex
 	rowHeap core.QuoteHeap
 }
 
@@ -138,20 +136,6 @@ func ProcessOrders(port *core.Portfolio) {
 	}
 }
 
-func ProcessChannels(c <-chan data.Quote, engine *EngineState) {
-	for c != nil {
-		row, ok := <-c
-		if !ok {
-			c = nil
-			continue
-		}
-
-		engine.mu.Lock()
-		engine.rowHeap.PushEntry(&row)
-		engine.mu.Unlock()
-	}
-}
-
 func SubmitOrder(order types.Order) {
 	delay := baseOrderDelayTicks
 	if orderDelayJitterTicks > 0 {
@@ -190,10 +174,6 @@ func main() {
 
 	tickers := cfg.Data.Tickers
 
-	marketPacketChannel := make(chan data.Quote)
-
-	go ProcessChannels(marketPacketChannel, &engineState)
-
 	READER_COUNT := 0
 	for _, ticker := range tickers {
 		var QUOTE_DATA_PATH = cfg.QuotePath(ticker)
@@ -204,7 +184,13 @@ func main() {
 		}
 		READER_COUNT++
 
-		go data.ReadData(reader, marketPacketChannel)
+		quotes, err := data.LoadAll(reader)
+		if err != nil {
+			fmt.Print(fmt.Errorf("%s", err))
+		}
+		for i := range quotes {
+			engineState.rowHeap.PushEntry(&quotes[i])
+		}
 	}
 	if READER_COUNT == 0 {
 		fmt.Println("All data files failed to open. Quitting program.")
@@ -235,6 +221,7 @@ func main() {
 	}
 	strategy := strategy.NewTakeProfit(tickers, types.PriceFromFloat(0.50), 100)
 
+engineLoop:
 	for {
 		// Break out of the loop when Ctrl+C (SIGINT) cancels the context.
 		// The default case keeps this non-blocking so the loop keeps
@@ -242,19 +229,14 @@ func main() {
 		select {
 		case <-ctx.Done():
 			fmt.Println("\nShutting down engine...")
-			return
+			break engineLoop
 		default:
 		}
 
 		// Get latest timestamp (tick)
-		engineState.mu.Lock()
 		var head *data.Quote = engineState.rowHeap.Peek()
-		engineState.mu.Unlock()
 		if head == nil {
-			// Heap is empty (readers haven't produced data yet, or we've
-			// drained everything). Yield and retry rather than busy-spinning.
-			time.Sleep(cfg.IdlePoll())
-			continue
+			break
 		}
 
 		var currentTick time.Time = head.Timestamp
@@ -263,15 +245,12 @@ func main() {
 		// The engine updates all bars for securities
 		for {
 
-			engineState.mu.Lock()
 			next := engineState.rowHeap.Peek()
 			if next == nil || !next.Timestamp.Equal(currentTick) {
-				engineState.mu.Unlock()
 				break
 			}
 
 			var nextBar *data.Quote = engineState.rowHeap.PopEntry()
-			engineState.mu.Unlock()
 			latestQuote[nextBar.Symbol] = nextBar
 
 			// Update latest market prices for portfolio
@@ -284,9 +263,7 @@ func main() {
 
 		// Calculate signals from strategies
 		// TODO: run in go routine for each active strategy ==========
-		engineState.mu.Lock()
 		newOrders := strategy.CalculateSignals(&latestQuote, portfolio)
-		engineState.mu.Unlock()
 		// TODO: =====================================================
 
 		// TODO: Have CalculateSignals append to this directly somehow
@@ -298,4 +275,10 @@ func main() {
 
 		time.Sleep(cfg.RenderThrottle()) // so we can watch the numbers on the terminal
 	}
+
+	totalReturn := 0.0
+	if startingCash > 0 {
+		totalReturn = (portfolio.NAV.Float()/startingCash.Float() - 1) * 100
+	}
+	fmt.Printf("\n=====Backtest Complete=====\nTicks processed: %d\nStarting Cash: $%s\nFinal NAV: $%s\nTotal Return: %0.2f%%\n", tickCount, startingCash, portfolio.NAV, totalReturn)
 }
