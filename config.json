@@ -14,5 +14,8 @@
     "quoteFilePattern": "stock_update_month_1min_quote/{ticker}_month_1min_quote.txt",
     "metricsOutputPath": "./_output/metrics.txt",
     "metricsAppend": true
+  },
+  "portfolio": {
+    "startingCash": 100000
   }
 }

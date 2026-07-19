@@ -58,11 +58,16 @@ type Data struct {
 	MetricsAppend bool `json:"metricsAppend"`
 }
 
+type Portfolio struct {
+	StartingCash float64 `json:"startingCash"`
+}
+
 // Config is the full set of engine settings.
 type Config struct {
-	Latency Latency `json:"latency"`
-	Engine  Engine  `json:"engine"`
-	Data    Data    `json:"data"`
+	Latency   Latency   `json:"latency"`
+	Engine    Engine    `json:"engine"`
+	Data      Data      `json:"data"`
+	Portfolio Portfolio `json:"portfolio"`
 }
 
 // Default returns the settings matching the engine's original hardcoded values.
@@ -83,6 +88,9 @@ func Default() Config {
 			QuoteFilePattern:  "stock_update_month_1min_quote/" + tickerPlaceholder + "_month_1min_quote.txt",
 			MetricsOutputPath: "./_output/metrics.txt",
 			MetricsAppend:     true,
+		},
+		Portfolio: Portfolio{
+			StartingCash: 100000,
 		},
 	}
 }
@@ -127,6 +135,9 @@ func (c Config) validate() error {
 	}
 	if c.Engine.IdlePollMs < 0 {
 		return fmt.Errorf("engine.idlePollMs must be >= 0")
+	}
+	if c.Portfolio.StartingCash < 0 {
+		return fmt.Errorf("portfolio.startingCash must be >= 0")
 	}
 	return nil
 }

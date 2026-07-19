@@ -14,10 +14,13 @@ type Position struct {
 
 type Portfolio struct {
 	Positions map[string]*Position
+	Cash      types.Price
 	NAV       types.Price
 }
 
 func (p *Portfolio) UpdatePosition(fill *types.Fill) {
+	p.Cash -= types.Price(int64(fill.Side)*fill.Quantity) * fill.Price
+
 	position, ok := p.Positions[fill.Symbol]
 	if !ok {
 		position = &Position{Symbol: fill.Symbol, Qty: int64(fill.Side) * fill.Quantity, CurrentSharePrice: fill.Price, CostBasis: fill.Price}
@@ -46,7 +49,7 @@ func (p *Portfolio) UpdatePrice(bar data.Quote) {
 
 // TODO: This logic can be optimized. Avoid recomputing on every tick
 func (p *Portfolio) updateNAV() {
-	var newNav types.Price = types.PriceFromFloat(0.0)
+	newNav := p.Cash
 	for _, pos := range p.Positions {
 		newNav += types.Price(pos.Qty) * pos.CurrentSharePrice
 	}

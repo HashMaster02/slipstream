@@ -227,8 +227,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	startingCash := types.PriceFromFloat(cfg.Portfolio.StartingCash)
 	portfolio := &core.Portfolio{
 		Positions: make(map[string]*core.Position),
+		Cash:      startingCash,
+		NAV:       startingCash,
 	}
 	strategy := strategy.NewTakeProfit(tickers, types.PriceFromFloat(0.50), 100)
 
@@ -291,7 +294,7 @@ func main() {
 			SubmitOrder(o)
 		}
 
-		fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, metrics.CurrentPositions(portfolio))
+		fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\x1b[1;33mCash\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, portfolio.Cash, metrics.CurrentPositions(portfolio))
 
 		time.Sleep(cfg.RenderThrottle()) // so we can watch the numbers on the terminal
 	}
