@@ -6,20 +6,30 @@ import (
 	"github.com/HashMaster02/slipstream/src/types"
 )
 
+// Tracks where a symbol is in the strategy's trade lifecycle
+type posState int8
+
+const (
+	stateFlat     posState = iota // no position, no order in flight
+	stateEntering                 // buy submitted, waiting for the fill
+	stateLong                     // position open, watching for the exit
+	stateExiting                  // sell submitted, waiting for the fill
+)
+
 type TakeProfit struct {
 	Watchlist    []string
 	PositionSize int64
-	EntryPrice   map[string]types.Price
 	TakeProfit   types.Price
+	state        map[string]posState
 }
 
 func NewTakeProfit(symbols []string, takeProfit types.Price, positionSize int64) TakeProfit {
-	entryPrices := make(map[string]types.Price)
+	state := make(map[string]posState)
 	for _, symbol := range symbols {
-		entryPrices[symbol] = 0
+		state[symbol] = stateFlat
 	}
 
-	return TakeProfit{Watchlist: symbols, PositionSize: positionSize, EntryPrice: entryPrices, TakeProfit: takeProfit}
+	return TakeProfit{Watchlist: symbols, PositionSize: positionSize, TakeProfit: takeProfit, state: state}
 }
 
 func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Quote, port *core.Portfolio) []types.Order {
@@ -28,54 +38,59 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Quote, po
 
 	for _, symbol := range strat.Watchlist {
 		bar := (*marketData)[symbol]
-		position, succ := port.Positions[bar.Symbol] // TODO: Fix a race condition that occurs here occasionally
-
-		if !succ {
-			// Init a new position within the portfolio
-			position = &core.Position{
-				Symbol:            symbol,
-				Qty:               0,
-				CurrentSharePrice: types.PriceFromFloat(0),
-				CostBasis:         types.PriceFromFloat(0),
-			}
-			port.Positions[symbol] = position
+		if bar == nil {
+			continue
 		}
+		position := port.Positions[symbol]
 
-		if position.Qty == 0 {
-			// Buy signal
-			position.CurrentSharePrice = bar.Last
-
-			order, err := types.NewOrder(bar.Symbol,
-							types.Buy,
-							types.Market,
-							types.GTC,
-							strat.PositionSize,
-							bar.Last,
-						)
+		switch strat.state[symbol] {
+		case stateFlat:
+			order, err := types.NewOrder(symbol,
+				types.Buy,
+				types.Market,
+				types.GTC,
+				strat.PositionSize,
+				0,
+			)
 			if err != nil {
-				return orders
+				continue
 			}
 			orders = append(orders, order)
+			strat.state[symbol] = stateEntering
 
-		} else {
-			// Sell signal
+		case stateEntering:
+			if position != nil && position.Qty > 0 {
+				strat.state[symbol] = stateLong
+			}
+
+		case stateLong:
+			if position == nil || position.Qty == 0 {
+				strat.state[symbol] = stateFlat
+				continue
+			}
+
 			exitPrice := position.CostBasis + strat.TakeProfit
 			if bar.Last < exitPrice {
 				continue
 			}
 
-			order, err := types.NewOrder(bar.Symbol,
+			order, err := types.NewOrder(symbol,
 				types.Sell,
 				types.Limit,
 				types.GTC,
-				strat.PositionSize,
+				position.Qty, 
 				exitPrice,
 			)
 			if err != nil {
-				return orders
+				continue
 			}
-
 			orders = append(orders, order)
+			strat.state[symbol] = stateExiting
+
+		case stateExiting:
+			if position == nil || position.Qty == 0 {
+				strat.state[symbol] = stateFlat
+			}
 		}
 	}
 	return orders
