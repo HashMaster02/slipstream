@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/HashMaster02/slipstream/src/core"
@@ -11,7 +12,14 @@ import (
 func CurrentPositions(portfolio *core.Portfolio) string {
 	var perfLog strings.Builder
 
-	for ticker, pos := range portfolio.Positions {
+	tickers := make([]string, 0, len(portfolio.Positions))
+	for ticker := range portfolio.Positions {
+		tickers = append(tickers, ticker)
+	}
+	sort.Strings(tickers)
+
+	for _, ticker := range tickers {
+		pos := portfolio.Positions[ticker]
 		if pos.Qty != 0 {
 			fmt.Fprintf(&perfLog, "\x1b[1;36m%5s::\x1b[0m Shares: %d, Cost Basis: $%s, Last: $%s\n", ticker, pos.Qty, pos.CostBasis.String(), pos.CurrentSharePrice.String())
 		}
