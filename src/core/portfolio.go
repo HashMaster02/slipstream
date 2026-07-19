@@ -22,6 +22,7 @@ func (p *Portfolio) UpdatePosition(fill *types.Fill) {
 	if !ok {
 		position = &Position{Symbol: fill.Symbol, Qty: int64(fill.Side) * fill.Quantity, CurrentSharePrice: fill.Price, CostBasis: fill.Price}
 		p.Positions[fill.Symbol] = position
+		p.updateNAV()
 		return
 	}
 
