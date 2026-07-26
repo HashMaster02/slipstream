@@ -70,16 +70,16 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Quote, po
 			}
 
 			exitPrice := position.CostBasis + strat.TakeProfit
-			if bar.Last < exitPrice {
+			if bar.Bid < exitPrice {
 				continue
 			}
 
 			order, err := types.NewOrder(symbol,
 				types.Sell,
-				types.Limit,
+				types.Market,
 				types.GTC,
-				position.Qty, 
-				exitPrice,
+				position.Qty,
+				0,
 			)
 			if err != nil {
 				continue
