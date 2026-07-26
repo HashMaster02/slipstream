@@ -66,12 +66,12 @@ func ParsePrice(s string) (Price, error) {
 		fracPart = fracPart[:4]
 	}
 
-	fracInt, err := strconv.ParseInt(fracPart+strings.Repeat("0", 4-len(fracPart)), 10, 64)
+	fracInt, err := strconv.ParseUint(fracPart+strings.Repeat("0", 4-len(fracPart)), 10, 32)
 	if err != nil {
 		return 0, fmt.Errorf("parse fractional part %q: %w", fracPart, err)
 	}
 
-	res := wholeInt*int64(TicksPerUnit) + fracInt
+	res := wholeInt*int64(TicksPerUnit) + int64(fracInt)
 
 	// Negate if original price was negative
 	if isNegative {
