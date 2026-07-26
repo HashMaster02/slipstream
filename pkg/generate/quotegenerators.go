@@ -52,7 +52,7 @@ func CorwinSchultz(dayT1 Candle, dayT2 Candle) Quote {
 
 	var alpha float64 = (math.Sqrt(2) + 1) * (math.Sqrt(beta) - math.Sqrt(gamma))
 
-	var S float64 = (2 * (math.Exp(alpha) - 1)) / (1 + math.Exp(alpha)) * 100 // gives us a percentage
+	var S float64 = (2 * (math.Exp(alpha) - 1)) / (1 + math.Exp(alpha))
 	if S < 0 {
 		S = 0
 	}
