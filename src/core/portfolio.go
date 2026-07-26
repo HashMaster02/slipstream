@@ -29,10 +29,29 @@ func (p *Portfolio) UpdatePosition(fill *types.Fill) {
 		return
 	}
 
-	position.Qty += int64(fill.Side) * fill.Quantity
-	position.CostBasis = fill.Price
+	signed := int64(fill.Side) * fill.Quantity
+	newQty := position.Qty + signed
+
+	// Only trades that grow the position move the cost basis. Reducing it leaves
+	// the basis of the remaining shares alone.
+	if position.Qty == 0 {
+		position.CostBasis = fill.Price
+	} else if (position.Qty > 0) == (signed > 0) {
+		oldCost := types.Price(abs(position.Qty)) * position.CostBasis
+		addCost := types.Price(abs(signed)) * fill.Price
+		position.CostBasis = (oldCost + addCost) / types.Price(abs(newQty))
+	}
+
+	position.Qty = newQty
 	position.CurrentSharePrice = fill.Price
 	p.updateNAV()
+}
+
+func abs(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func (p *Portfolio) UpdatePrice(bar data.Quote) {
