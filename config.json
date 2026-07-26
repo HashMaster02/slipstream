@@ -5,7 +5,7 @@
     "rngSeed": 1
   },
   "engine": {
-    "renderThrottleMs": 100,
+    "renderThrottleMs": 0,
     "idlePollMs": 1
   },
   "data": {

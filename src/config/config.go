@@ -33,8 +33,9 @@ type Latency struct {
 
 // Engine configures the main loop's timing.
 type Engine struct {
-	// RenderThrottleMs pauses the loop after each tick so the terminal output
-	// is watchable. Set to 0 to run flat out (recommended for real backtests).
+	// RenderThrottleMs pauses the loop after each tick and draws the live view so
+	// the terminal output is watchable. 0 runs flat out and prints only the final
+	// summary, which is the default.
 	RenderThrottleMs int64 `json:"renderThrottleMs"`
 	// IdlePollMs is how long the loop sleeps when the heap is empty (waiting on
 	// the readers) before checking again.
@@ -83,7 +84,7 @@ func Default() Config {
 			RNGSeed:               1,
 		},
 		Engine: Engine{
-			RenderThrottleMs: 100,
+			RenderThrottleMs: 0,
 			IdlePollMs:       1,
 		},
 		Data: Data{

@@ -185,6 +185,7 @@ func main() {
 	orderDelayJitterTicks = cfg.Latency.OrderDelayJitterTicks
 	delayRNG = rand.New(rand.NewSource(cfg.Latency.RNGSeed))
 	maxQuoteStaleness = cfg.MaxQuoteStaleness()
+	renderThrottle := cfg.RenderThrottle()
 
 	tickers := cfg.Data.Tickers
 
@@ -287,9 +288,12 @@ engineLoop:
 			SubmitOrder(o)
 		}
 
-		fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\x1b[1;33mCash\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, portfolio.Cash, metrics.CurrentPositions(portfolio))
-
-		time.Sleep(cfg.RenderThrottle()) // so we can watch the numbers on the terminal
+		// The live view clears the screen every tick, so it is only drawn when the
+		// throttle is slow enough to watch. Otherwise errors would be wiped too.
+		if renderThrottle > 0 {
+			fmt.Printf("\033[2J\033[3J\033[H=====Info=====\n\x1b[1;33mNAV\x1b[0m:: $%s\n\x1b[1;33mCash\x1b[0m:: $%s\n\n=====Positions=====\n%s", portfolio.NAV, portfolio.Cash, metrics.CurrentPositions(portfolio))
+			time.Sleep(renderThrottle)
+		}
 	}
 
 	totalReturn := 0.0
