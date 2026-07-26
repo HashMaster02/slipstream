@@ -224,8 +224,9 @@ func main() {
 	METRIC_OUTPUT_FILE, err := os.OpenFile(cfg.Data.MetricsOutputPath, metricFlags, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
+	} else {
+		defer METRIC_OUTPUT_FILE.Close()
 	}
-	defer METRIC_OUTPUT_FILE.Close()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -300,7 +301,8 @@ engineLoop:
 	if startingCash > 0 {
 		totalReturn = (portfolio.NAV.Float()/startingCash.Float() - 1) * 100
 	}
-	fmt.Printf("\n=====Backtest Complete=====\nTicks processed: %d\nStarting Cash: $%s\nFinal NAV: $%s\nTotal Return: %0.2f%%\n", tickCount, startingCash, portfolio.NAV, totalReturn)
+	var summary strings.Builder
+	fmt.Fprintf(&summary, "\n=====Backtest Complete=====\nTickers: %s\nTicks processed: %d\nStarting Cash: $%s\nFinal NAV: $%s\nTotal Return: %0.2f%%\n", strings.Join(tickers, ", "), tickCount, startingCash, portfolio.NAV, totalReturn)
 
 	if len(staleSymbols) > 0 {
 		stale := make([]string, 0, len(staleSymbols))
@@ -308,6 +310,14 @@ engineLoop:
 			stale = append(stale, symbol)
 		}
 		sort.Strings(stale)
-		fmt.Printf("Stale data (orders held, positions marked at last price): %s\n", strings.Join(stale, ", "))
+		fmt.Fprintf(&summary, "Stale data (orders held, positions marked at last price): %s\n", strings.Join(stale, ", "))
+	}
+
+	fmt.Print(summary.String())
+
+	if METRIC_OUTPUT_FILE != nil {
+		if _, err := METRIC_OUTPUT_FILE.WriteString(summary.String()); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+		}
 	}
 }
