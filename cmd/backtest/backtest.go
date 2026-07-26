@@ -90,6 +90,7 @@ func ProcessOrders(port *core.Portfolio, now time.Time) {
 						order.Type,
 						order.Quantity,
 						bar.Ask,
+						now,
 					)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -104,6 +105,7 @@ func ProcessOrders(port *core.Portfolio, now time.Time) {
 						order.Type,
 						order.Quantity,
 						bar.Bid,
+						now,
 					)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -122,6 +124,7 @@ func ProcessOrders(port *core.Portfolio, now time.Time) {
 						order.Type,
 						order.Quantity,
 						bar.Ask,
+						now,
 					)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -136,6 +139,7 @@ func ProcessOrders(port *core.Portfolio, now time.Time) {
 						order.Type,
 						order.Quantity,
 						bar.Bid,
+						now,
 					)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%v\n", err)

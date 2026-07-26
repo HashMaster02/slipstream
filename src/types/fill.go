@@ -6,23 +6,23 @@ import (
 )
 
 type Fill struct {
-	Symbol      string
-	Side        Side
-	Type        OrderType
-	Quantity    int64 
-	Price       Price 
-	SubmittedAt time.Time
+	Symbol   string
+	Side     Side
+	Type     OrderType
+	Quantity int64
+	Price    Price
+	FilledAt time.Time
 }
 
-func NewFill(symbol string, side Side, orderType OrderType, qty int64, price Price) (Fill, error) {
+func NewFill(symbol string, side Side, orderType OrderType, qty int64, price Price, filledAt time.Time) (Fill, error) {
 
 	fill := Fill{
-		Symbol:      symbol,
-		Side:        side,
-		Type:        orderType,
-		Quantity:    qty,
-		Price:       price,
-		SubmittedAt: time.Now(),
+		Symbol:   symbol,
+		Side:     side,
+		Type:     orderType,
+		Quantity: qty,
+		Price:    price,
+		FilledAt: filledAt,
 	}
 
 	if err := fill.validate(); err != nil {

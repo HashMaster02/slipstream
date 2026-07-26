@@ -11,10 +11,6 @@ type OrderID uint64
 
 var nextOrderID atomic.Uint64
 
-func init() {
-	nextOrderID.Store(uint64(time.Now().UnixNano()))
-}
-
 func NewOrderID() OrderID {
 	return OrderID(nextOrderID.Add(1))
 }
@@ -104,7 +100,7 @@ type Order struct {
 	SubmittedAt time.Time
 }
 
-func NewOrder(symbol string, side Side, orderType OrderType, tif TIF, qty int64, price Price) (Order, error) {
+func NewOrder(symbol string, side Side, orderType OrderType, tif TIF, qty int64, price Price, submittedAt time.Time) (Order, error) {
 
 	order := Order{
 		ID:          NewOrderID(),
@@ -114,7 +110,7 @@ func NewOrder(symbol string, side Side, orderType OrderType, tif TIF, qty int64,
 		TIF:         tif,
 		Quantity:    qty,
 		Price:       price,
-		SubmittedAt: time.Now(),
+		SubmittedAt: submittedAt,
 	}
 
 	if err := order.validate(); err != nil {

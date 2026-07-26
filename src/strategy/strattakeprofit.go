@@ -51,6 +51,7 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Quote, po
 				types.GTC,
 				strat.PositionSize,
 				0,
+				bar.Timestamp,
 			)
 			if err != nil {
 				continue
@@ -80,6 +81,7 @@ func (strat *TakeProfit) CalculateSignals(marketData *map[string]*data.Quote, po
 				types.GTC,
 				position.Qty,
 				0,
+				bar.Timestamp,
 			)
 			if err != nil {
 				continue
