@@ -79,7 +79,7 @@ func ProcessOrders(port *core.Portfolio) {
 						bar.Ask,
 					)
 					if err != nil {
-						fmt.Print(fmt.Errorf("%s", err))
+						fmt.Fprintf(os.Stderr, "%v\n", err)
 						continue
 					}
 					port.UpdatePosition(&fill)
@@ -93,7 +93,7 @@ func ProcessOrders(port *core.Portfolio) {
 						bar.Bid,
 					)
 					if err != nil {
-						fmt.Print(fmt.Errorf("%s", err))
+						fmt.Fprintf(os.Stderr, "%v\n", err)
 						continue
 					}
 					port.UpdatePosition(&fill)
@@ -111,7 +111,7 @@ func ProcessOrders(port *core.Portfolio) {
 						bar.Ask,
 					)
 					if err != nil {
-						fmt.Print(fmt.Errorf("%s", err))
+						fmt.Fprintf(os.Stderr, "%v\n", err)
 						continue
 					}
 					port.UpdatePosition(&fill)
@@ -125,7 +125,7 @@ func ProcessOrders(port *core.Portfolio) {
 						bar.Bid,
 					)
 					if err != nil {
-						fmt.Print(fmt.Errorf("%s", err))
+						fmt.Fprintf(os.Stderr, "%v\n", err)
 						continue
 					}
 					port.UpdatePosition(&fill)
@@ -164,7 +164,7 @@ func main() {
 
 	cfg, err := config.Load(config.DefaultPath)
 	if err != nil {
-		fmt.Println(fmt.Errorf("%w", err))
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
@@ -179,14 +179,14 @@ func main() {
 		var QUOTE_DATA_PATH = cfg.QuotePath(ticker)
 		reader, err := data.NewReader(QUOTE_DATA_PATH, ticker)
 		if err != nil {
-			fmt.Print(fmt.Errorf("%s", err))
+			fmt.Fprintf(os.Stderr, "%v\n", err)
 			continue
 		}
 		READER_COUNT++
 
 		quotes, err := data.LoadAll(reader)
 		if err != nil {
-			fmt.Print(fmt.Errorf("%s", err))
+			fmt.Fprintf(os.Stderr, "%v\n", err)
 		}
 		for i := range quotes {
 			engineState.rowHeap.PushEntry(&quotes[i])
@@ -206,7 +206,7 @@ func main() {
 	}
 	METRIC_OUTPUT_FILE, err := os.OpenFile(cfg.Data.MetricsOutputPath, metricFlags, 0644)
 	if err != nil {
-		fmt.Print(fmt.Errorf("%s", err))
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 	}
 	defer METRIC_OUTPUT_FILE.Close()
 

@@ -74,8 +74,8 @@ func wantFillPrice(t *testing.T, port *core.Portfolio, sym string, price float64
 	if !ok {
 		t.Fatalf("expected a position for %s, but none exists", sym)
 	}
-	if p.CostBasis != px(price) {
-		t.Errorf("%s fill price = %s, want %s", sym, p.CostBasis, px(price))
+	if p.CurrentSharePrice != px(price) {
+		t.Errorf("%s fill price = %s, want %s", sym, p.CurrentSharePrice, px(price))
 	}
 }
 
