@@ -3,6 +3,7 @@ package main
 import (
 	"container/list"
 	"testing"
+	"time"
 
 	"github.com/HashMaster02/slipstream/src/core"
 	"github.com/HashMaster02/slipstream/src/data"
@@ -248,8 +249,38 @@ func TestProcessOrders(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			port := tc.setup()
-			ProcessOrders(port)
+			ProcessOrders(port, time.Time{})
 			tc.check(t, port)
 		})
+	}
+}
+
+// TestProcessOrdersStaleQuote pins that a symbol whose feed has ended stops
+// filling orders once its last quote ages past maxQuoteStaleness.
+func TestProcessOrdersStaleQuote(t *testing.T) {
+	maxQuoteStaleness = 60 * time.Minute
+	staleSymbols = map[string]bool{}
+	defer func() { maxQuoteStaleness = 0 }()
+
+	lastQuote := time.Date(2026, 4, 30, 16, 22, 0, 0, time.UTC)
+	bar := quote("DTSQR", 0.149, 0.150)
+	bar.Timestamp = lastQuote
+	latestQuote = map[string]*data.Quote{"DTSQR": bar}
+
+	setPending(ord(1, "DTSQR", types.Buy, types.Market, 100, 0))
+	port := &core.Portfolio{Positions: map[string]*core.Position{}}
+
+	ProcessOrders(port, lastQuote.Add(30*time.Minute))
+	wantPosition(t, port, "DTSQR", 100)
+
+	setPending(ord(2, "DTSQR", types.Buy, types.Market, 100, 0))
+	ProcessOrders(port, lastQuote.Add(26*24*time.Hour))
+
+	if port.Positions["DTSQR"].Qty != 100 {
+		t.Errorf("DTSQR qty = %d, want 100; order filled against a stale quote", port.Positions["DTSQR"].Qty)
+	}
+	wantPendingIDs(t, 2)
+	if !staleSymbols["DTSQR"] {
+		t.Errorf("DTSQR was not recorded as stale")
 	}
 }

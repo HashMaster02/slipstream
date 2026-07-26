@@ -56,6 +56,10 @@ type Data struct {
 	// MetricsAppend, when true, appends to MetricsOutputPath across runs;
 	// when false, the file is truncated at the start of each run.
 	MetricsAppend bool `json:"metricsAppend"`
+	// MaxQuoteStalenessMinutes is how far behind the current tick a symbol's last
+	// quote may fall before the engine stops filling orders against it. Positions
+	// stay marked at that last price either way. Set to 0 to disable the check.
+	MaxQuoteStalenessMinutes int64 `json:"maxQuoteStalenessMinutes"`
 }
 
 type Portfolio struct {
@@ -86,8 +90,9 @@ func Default() Config {
 			Tickers:           []string{"AAPL"},
 			BasePath:          "./_data/firstrate",
 			QuoteFilePattern:  "stock_update_month_1min_quote/" + tickerPlaceholder + "_month_1min_quote.txt",
-			MetricsOutputPath: "./_output/metrics.txt",
-			MetricsAppend:     true,
+			MetricsOutputPath:        "./_output/metrics.txt",
+			MetricsAppend:            true,
+			MaxQuoteStalenessMinutes: 60,
 		},
 		Portfolio: Portfolio{
 			StartingCash: 100000,
@@ -130,6 +135,9 @@ func (c Config) validate() error {
 	if c.Data.MetricsOutputPath == "" {
 		return fmt.Errorf("data.metricsOutputPath must not be empty")
 	}
+	if c.Data.MaxQuoteStalenessMinutes < 0 {
+		return fmt.Errorf("data.maxQuoteStalenessMinutes must be >= 0")
+	}
 	if c.Engine.RenderThrottleMs < 0 {
 		return fmt.Errorf("engine.renderThrottleMs must be >= 0")
 	}
@@ -151,6 +159,11 @@ func (c Config) QuotePath(ticker string) string {
 // RenderThrottle is the per-tick display pause as a time.Duration.
 func (c Config) RenderThrottle() time.Duration {
 	return time.Duration(c.Engine.RenderThrottleMs) * time.Millisecond
+}
+
+// MaxQuoteStaleness is the quote age limit as a time.Duration.
+func (c Config) MaxQuoteStaleness() time.Duration {
+	return time.Duration(c.Data.MaxQuoteStalenessMinutes) * time.Minute
 }
 
 // IdlePoll is the empty-heap poll interval as a time.Duration.

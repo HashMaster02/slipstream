@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/HashMaster02/slipstream/src/config"
@@ -46,10 +48,14 @@ var delayedOrders []delayedOrder
 // TODO: Move this somewhere else at some point
 var latestQuote map[string]*data.Quote = make(map[string]*data.Quote)
 
+// Orders do not fill against a quote older than this. Positions stay marked at it.
+var maxQuoteStaleness time.Duration
+var staleSymbols map[string]bool = make(map[string]bool)
+
 // Consider implementing a custom Doubly Linked List typed to an Order
 var pendingOrders *list.List = list.New()
 
-func ProcessOrders(port *core.Portfolio) {
+func ProcessOrders(port *core.Portfolio, now time.Time) {
 	// Keep track of 'next' node in case of current Order deletion due to Fill
 	var next *list.Element
 
@@ -63,6 +69,13 @@ func ProcessOrders(port *core.Portfolio) {
 
 		bar, succ := latestQuote[order.Symbol]
 		if !succ {
+			continue
+		}
+
+		// A stale quote is not a market we can trade against, so the order rests
+		// until fresh data arrives for that symbol.
+		if maxQuoteStaleness > 0 && now.Sub(bar.Timestamp) > maxQuoteStaleness {
+			staleSymbols[order.Symbol] = true
 			continue
 		}
 
@@ -171,10 +184,11 @@ func main() {
 	baseOrderDelayTicks = cfg.Latency.BaseOrderDelayTicks
 	orderDelayJitterTicks = cfg.Latency.OrderDelayJitterTicks
 	delayRNG = rand.New(rand.NewSource(cfg.Latency.RNGSeed))
+	maxQuoteStaleness = cfg.MaxQuoteStaleness()
 
 	tickers := cfg.Data.Tickers
 
-	READER_COUNT := 0
+	QUOTE_COUNT := 0
 	for _, ticker := range tickers {
 		var QUOTE_DATA_PATH = cfg.QuotePath(ticker)
 		reader, err := data.NewReader(QUOTE_DATA_PATH, ticker)
@@ -182,19 +196,21 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			continue
 		}
-		READER_COUNT++
 
 		quotes, err := data.LoadAll(reader)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %v\nBad market data. Quitting program.\n", ticker, err)
+			os.Exit(1)
 		}
+		QUOTE_COUNT += len(quotes)
+
 		for i := range quotes {
 			engineState.rowHeap.PushEntry(&quotes[i])
 		}
 	}
-	if READER_COUNT == 0 {
-		fmt.Println("All data files failed to open. Quitting program.")
-		os.Exit(-1)
+	if QUOTE_COUNT == 0 {
+		fmt.Fprintln(os.Stderr, "No market data was loaded. Quitting program.")
+		os.Exit(1)
 	}
 
 	// =========== Main engine loop ===============
@@ -259,7 +275,7 @@ engineLoop:
 		}
 		ReleaseDelayedOrders()
 
-		ProcessOrders(portfolio)
+		ProcessOrders(portfolio, currentTick)
 
 		// Calculate signals from strategies
 		// TODO: run in go routine for each active strategy ==========
@@ -281,4 +297,13 @@ engineLoop:
 		totalReturn = (portfolio.NAV.Float()/startingCash.Float() - 1) * 100
 	}
 	fmt.Printf("\n=====Backtest Complete=====\nTicks processed: %d\nStarting Cash: $%s\nFinal NAV: $%s\nTotal Return: %0.2f%%\n", tickCount, startingCash, portfolio.NAV, totalReturn)
+
+	if len(staleSymbols) > 0 {
+		stale := make([]string, 0, len(staleSymbols))
+		for symbol := range staleSymbols {
+			stale = append(stale, symbol)
+		}
+		sort.Strings(stale)
+		fmt.Printf("Stale data (orders held, positions marked at last price): %s\n", strings.Join(stale, ", "))
+	}
 }
