@@ -117,7 +117,7 @@ func TestProcessOrders(t *testing.T) {
 			setup: func() *core.Portfolio {
 				latestQuote = map[string]*data.Quote{"AAPL": quote("AAPL", 149, 150)}
 				setPending(ord(1, "AAPL", types.Buy, types.Market, 100, 0))
-				return &core.Portfolio{Positions: map[string]*core.Position{}}
+				return &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(1000000)}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 100)
@@ -130,7 +130,7 @@ func TestProcessOrders(t *testing.T) {
 			setup: func() *core.Portfolio {
 				latestQuote = map[string]*data.Quote{"AAPL": quote("AAPL", 94, 95)}
 				setPending(ord(1, "AAPL", types.Buy, types.Limit, 100, 100))
-				return &core.Portfolio{Positions: map[string]*core.Position{}}
+				return &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(1000000)}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 100)
@@ -143,7 +143,7 @@ func TestProcessOrders(t *testing.T) {
 			setup: func() *core.Portfolio {
 				latestQuote = map[string]*data.Quote{"AAPL": quote("AAPL", 104, 105)}
 				setPending(ord(1, "AAPL", types.Buy, types.Limit, 100, 100))
-				return &core.Portfolio{Positions: map[string]*core.Position{}}
+				return &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(1000000)}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				if _, ok := port.Positions["AAPL"]; ok {
@@ -186,7 +186,7 @@ func TestProcessOrders(t *testing.T) {
 			setup: func() *core.Portfolio {
 				latestQuote = map[string]*data.Quote{} // no quote for AAPL
 				setPending(ord(1, "AAPL", types.Buy, types.Market, 100, 0))
-				return &core.Portfolio{Positions: map[string]*core.Position{}}
+				return &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(1000000)}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				if _, ok := port.Positions["AAPL"]; ok {
@@ -203,7 +203,7 @@ func TestProcessOrders(t *testing.T) {
 					ord(1, "AAPL", types.Buy, types.Limit, 100, 100), // ask 95<=100 fills
 					ord(2, "AAPL", types.Buy, types.Limit, 100, 96),  // ask 95<=96  fills
 				)
-				return &core.Portfolio{Positions: map[string]*core.Position{}}
+				return &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(1000000)}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 200)
@@ -218,7 +218,7 @@ func TestProcessOrders(t *testing.T) {
 					ord(1, "AAPL", types.Buy, types.Limit, 100, 50), // ask 95<=50 false -> should rest
 					ord(2, "AAPL", types.Buy, types.Market, 100, 0), // fills
 				)
-				return &core.Portfolio{Positions: map[string]*core.Position{}}
+				return &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(1000000)}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 100)
@@ -235,7 +235,7 @@ func TestProcessOrders(t *testing.T) {
 					ord(1, "AAPL", types.Buy, types.Market, 100, 0), // fills
 					ord(2, "AAPL", types.Buy, types.Limit, 100, 50), // ask 95<=50 false -> should rest
 				)
-				return &core.Portfolio{Positions: map[string]*core.Position{}}
+				return &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(1000000)}
 			},
 			check: func(t *testing.T, port *core.Portfolio) {
 				wantPosition(t, port, "AAPL", 100)
@@ -255,6 +255,28 @@ func TestProcessOrders(t *testing.T) {
 	}
 }
 
+// TestProcessOrdersRejectsUnaffordableBuy pins that a buy the portfolio cannot
+// cover in cash is rejected rather than taking Cash negative.
+func TestProcessOrdersRejectsUnaffordableBuy(t *testing.T) {
+	rejectedOrders = 0
+	latestQuote = map[string]*data.Quote{"AAPL": quote("AAPL", 149, 150)}
+	setPending(ord(1, "AAPL", types.Buy, types.Market, 100, 0))
+	port := &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(14999)}
+
+	ProcessOrders(port, time.Time{})
+
+	if _, ok := port.Positions["AAPL"]; ok {
+		t.Errorf("AAPL position exists; a $15000 buy filled against $14999 of cash")
+	}
+	if port.Cash != px(14999) {
+		t.Errorf("Cash = %s, want 14999.0000", port.Cash)
+	}
+	if rejectedOrders != 1 {
+		t.Errorf("rejectedOrders = %d, want 1", rejectedOrders)
+	}
+	wantPendingIDs(t)
+}
+
 // TestProcessOrdersStaleQuote pins that a symbol whose feed has ended stops
 // filling orders once its last quote ages past maxQuoteStaleness.
 func TestProcessOrdersStaleQuote(t *testing.T) {
@@ -268,7 +290,7 @@ func TestProcessOrdersStaleQuote(t *testing.T) {
 	latestQuote = map[string]*data.Quote{"DTSQR": bar}
 
 	setPending(ord(1, "DTSQR", types.Buy, types.Market, 100, 0))
-	port := &core.Portfolio{Positions: map[string]*core.Position{}}
+	port := &core.Portfolio{Positions: map[string]*core.Position{}, Cash: px(1000000)}
 
 	ProcessOrders(port, lastQuote.Add(30*time.Minute))
 	wantPosition(t, port, "DTSQR", 100)

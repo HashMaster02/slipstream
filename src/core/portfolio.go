@@ -18,6 +18,10 @@ type Portfolio struct {
 	NAV       types.Price
 }
 
+func (p *Portfolio) CanAfford(qty int64, price types.Price) bool {
+	return types.Price(qty)*price <= p.Cash
+}
+
 func (p *Portfolio) UpdatePosition(fill *types.Fill) {
 	p.Cash -= types.Price(int64(fill.Side)*fill.Quantity) * fill.Price
 

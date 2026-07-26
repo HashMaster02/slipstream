@@ -39,6 +39,9 @@ var delayRNG *rand.Rand
 // Monotonic count of distinct market ticks (bars) processed by the engine
 var tickCount uint64
 
+// Buys the portfolio could not cover in cash
+var rejectedOrders int
+
 type delayedOrder struct {
 	order          types.Order
 	activationTick uint64
@@ -84,6 +87,11 @@ func ProcessOrders(port *core.Portfolio, now time.Time) {
 		case types.Market:
 			{
 				if (order.Side == types.Buy) {
+					if !port.CanAfford(order.Quantity, bar.Ask) {
+						rejectedOrders++
+						pendingOrders.Remove(e)
+						continue
+					}
 					fill, err := types.NewFill(
 						order.Symbol,
 						order.Side,
@@ -118,6 +126,11 @@ func ProcessOrders(port *core.Portfolio, now time.Time) {
 		case types.Limit:
 			{
 				if ((order.Side == types.Buy) && (bar.Ask <= order.Price)) {
+					if !port.CanAfford(order.Quantity, bar.Ask) {
+						rejectedOrders++
+						pendingOrders.Remove(e)
+						continue
+					}
 					fill, err := types.NewFill(
 						order.Symbol,
 						order.Side,
@@ -307,6 +320,10 @@ engineLoop:
 	}
 	var summary strings.Builder
 	fmt.Fprintf(&summary, "\n=====Backtest Complete=====\nTickers: %s\nTicks processed: %d\nStarting Cash: $%s\nFinal NAV: $%s\nTotal Return: %0.2f%%\n", strings.Join(tickers, ", "), tickCount, startingCash, portfolio.NAV, totalReturn)
+
+	if rejectedOrders > 0 {
+		fmt.Fprintf(&summary, "Orders rejected for insufficient cash: %d\n", rejectedOrders)
+	}
 
 	if len(staleSymbols) > 0 {
 		stale := make([]string, 0, len(staleSymbols))
