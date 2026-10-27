@@ -1,8 +1,5 @@
 # Slipstream
 
-> **Not for professional use.** Slipstream was built as a study project to learn about basic stock market
-> functionality and to learn Go. It is not audited, not battle-tested, and its fill model is a deliberate
-> simplification of how real markets work. Do not use it to make trading decisions or to manage real money.
 
 A backtesting engine for equity strategies, written in Go. It replays historical 1-minute
 bid/ask/last quotes through a simulated venue with order latency, cash constraints, and stale-data handling,
@@ -78,8 +75,14 @@ and pauses every tick.
 
 The run summary is printed to the console and written to `metricsOutputPath`.
 
+
+
 ## Tests
 
 ```sh
 go test ./...
 ```
+
+## Scope
+
+**Not for professional use.** Slipstream was built as a study project to learn about basic stock market functionality and to learn Go. It is not audited, not battle-tested, and its fill model is a deliberate simplification of how real markets work. Do not use it to make trading decisions or to manage real money.
